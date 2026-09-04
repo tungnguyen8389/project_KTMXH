@@ -50,7 +50,7 @@ function renderKMeansStep(res, stepIdx) {
     const iter = res.iterations[stepIdx];
     const ctx = document.getElementById('kmeansChart').getContext('2d');
 
-    const clusterColors = ['#38bdf8', '#c084fc', '#34d399', '#fbbf24', '#fb7185'];
+    const clusterColors = ['#0284c7', '#7c3aed', '#059669', '#d97706', '#e11d48'];
 
     // 1. Group points by assigned cluster for Chart.js datasets
     const datasets = [];
@@ -104,7 +104,7 @@ function renderKMeansStep(res, stepIdx) {
                 title: {
                     display: true,
                     text: `Vòng lặp ${iter.iteration} / ${res.total_iterations} ${res.converged && stepIdx === res.iterations.length - 1 ? '(Hội tụ hoàn tất!)' : ''}`,
-                    color: '#f8fafc',
+                    color: '#0f172a',
                     font: { size: 14, weight: 'bold' }
                 },
                 tooltip: {
@@ -114,8 +114,8 @@ function renderKMeansStep(res, stepIdx) {
                 }
             },
             scales: {
-                x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+                x: { grid: { color: 'rgba(0, 0, 0, 0.06)' }, ticks: { color: '#475569' } },
+                y: { grid: { color: 'rgba(0, 0, 0, 0.06)' }, ticks: { color: '#475569' } }
             }
         }
     });
@@ -133,7 +133,7 @@ function renderKMeansStep(res, stepIdx) {
         html += `<tr><td><strong>${label}</strong></td>`;
         for (let c = 0; c < numClusters; c++) {
             const isMin = iter.cluster_assignments[i] === c;
-            html += `<td style="${isMin ? 'color:#38bdf8; font-weight:bold;' : ''}">${iter.distance_matrix_D[i][c]}</td>`;
+            html += `<td style="${isMin ? 'color:#0284c7; font-weight:bold;' : ''}">${iter.distance_matrix_D[i][c]}</td>`;
         }
         html += `</tr>`;
     });
@@ -148,7 +148,7 @@ function renderKMeansStep(res, stepIdx) {
         html += `<tr><td><strong>${label}</strong></td>`;
         for (let c = 0; c < numClusters; c++) {
             const val = iter.partition_matrix_U[i][c];
-            html += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : ''}">${val}</td>`;
+            html += `<td style="${val === 1 ? 'color:#059669; font-weight:bold;' : ''}">${val}</td>`;
         }
         html += `</tr>`;
     });
