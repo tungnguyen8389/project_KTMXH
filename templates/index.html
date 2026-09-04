@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- TAB 1: PREPROCESSING -->
+<section id="tab-preprocessing" class="tab-panel active">
+    <div class="panel-grid">
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>⚙️ Dữ liệu & Tham số Chuẩn hóa</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Chọn thuật toán:</label>
+                    <select id="prep-type" class="form-control">
+                        <option value="minmax">Chuẩn hóa Min-Max</option>
+                        <option value="zscore">Chuẩn hóa Z-Score</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tên thuộc tính cần chuẩn hóa:</label>
+                        <input type="text" id="prep-feature" class="form-control" value="score">
+                    </div>
+                </div>
+                <div id="minmax-range-group" class="form-row">
+                    <div class="form-group">
+                        <label>New Min ($new\_min_A$):</label>
+                        <input type="number" id="prep-new-min" class="form-control" value="0.0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>New Max ($new\_max_A$):</label>
+                        <input type="number" id="prep-new-max" class="form-control" value="1.0" step="0.1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dữ liệu JSON mẫu:</label>
+                    <textarea id="prep-json-input" class="form-control code-editor" rows="6">[
+  {"sv_id": "SV01", "name": "A", "score": 4.5},
+  {"sv_id": "SV02", "name": "B", "score": 6.0},
+  {"sv_id": "SV03", "name": "C", "score": 7.5},
+  {"sv_id": "SV04", "name": "D", "score": 9.0},
+  {"sv_id": "SV05", "name": "E", "score": 10.0}
+]</textarea>
+                </div>
+                <button id="btn-run-prep" class="btn btn-primary btn-block">🚀 Thực thi Chuẩn hóa</button>
+            </div>
+        </div>
+
+        <!-- Result Trace Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>📝 Chi tiết Các Bước Tính Toán</h3>
+            </div>
+            <div class="card-body">
+                <div id="prep-formula-box" class="formula-box"></div>
+                <div id="prep-steps-output" class="steps-container">
+                    <p class="placeholder-text">Vui lòng bấm "Thực thi Chuẩn hóa" để hiển thị chi tiết các bước toán học.</p>
+                </div>
+                <h4 class="mt-4">📊 Bảng Kết Quả Sau Chuẩn Hóa</h4>
+                <div id="prep-table-output" class="table-responsive"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TAB 2: ROUGH SET & REDUCT -->
+<section id="tab-roughset" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🧩 Hệ Thông Tin Tập Thô & Rút Gọn</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Thuộc tính điều kiện $C$ (phân cách bằng dấu phẩy):</label>
+                    <input type="text" id="rs-cond-attrs" class="form-control" value="a, b, c, d">
+                </div>
+                <div class="form-group">
+                    <label>Thuộc tính quyết định $D$:</label>
+                    <input type="text" id="rs-dec-attr" class="form-control" value="e">
+                </div>
+                <div class="form-group">
+                    <label>Bảng Hệ thông tin (JSON):</label>
+                    <textarea id="rs-json-input" class="form-control code-editor" rows="7">[
+  {"id": "x1", "a": 1, "b": 1, "c": 0, "d": 1, "e": 1},
+  {"id": "x2", "a": 1, "b": 0, "c": 0, "d": 1, "e": 1},
+  {"id": "x3", "a": 0, "b": 0, "c": 0, "d": 0, "e": 0},
+  {"id": "x4", "a": 1, "b": 1, "c": 0, "d": 0, "e": 0},
+  {"id": "x5", "a": 0, "b": 1, "c": 0, "d": 1, "e": 1},
+  {"id": "x6", "a": 0, "b": 0, "c": 0, "d": 1, "e": 0},
+  {"id": "x7", "a": 1, "b": 0, "c": 1, "d": 1, "e": 1},
+  {"id": "x8", "a": 0, "b": 1, "c": 1, "d": 0, "e": 0}
+]</textarea>
+                </div>
+                <div class="btn-group-2">
+                    <button id="btn-run-rs" class="btn btn-primary">🔍 Xấp Xỉ Trên/Dưới & k</button>
+                    <button id="btn-run-reduct" class="btn btn-secondary">⚡ Ma Trận Phân Biệt & Reduct</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>📐 Kết Quả Phân Tích Tập Thô</h3>
+            </div>
+            <div class="card-body">
+                <div id="rs-katex-output" class="formula-box">
+                    <p class="placeholder-text">Kết quả tính toán Xấp xỉ và Rút gọn Boole sẽ hiển thị tại đây.</p>
+                </div>
+                <div id="rs-matrix-output" class="table-responsive mt-3"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TAB 3: K-MEANS -->
+<section id="tab-kmeans" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>📊 Tham Số Phân Cụm K-Means</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số cụm K:</label>
+                        <input type="number" id="km-k" class="form-control" value="2" min="2" max="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Số vòng lặp tối đa:</label>
+                        <input type="number" id="km-max-iter" class="form-control" value="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tập điểm không gian 2D (JSON):</label>
+                    <textarea id="km-points-input" class="form-control code-editor" rows="7">[
+  {"id": "P1", "x": 2.0, "y": 10.0},
+  {"id": "P2", "x": 2.0, "y": 5.0},
+  {"id": "P3", "x": 8.0, "y": 4.0},
+  {"id": "P4", "x": 5.0, "y": 8.0},
+  {"id": "P5", "x": 7.0, "y": 5.0},
+  {"id": "P6", "x": 6.0, "y": 4.0},
+  {"id": "P7", "x": 1.0, "y": 2.0},
+  {"id": "P8", "x": 4.0, "y": 9.0}
+]</textarea>
+                </div>
+                <button id="btn-run-kmeans" class="btn btn-primary btn-block">📈 Phân Cụm Step-by-Step</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header flex-between">
+                <h3>🎨 Biểu Đồ Dynamic 2D Scatter</h3>
+                <div id="km-step-controls" class="btn-group-sm"></div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="kmeansChart"></canvas>
+                </div>
+                <div id="km-tables-output" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TAB 4: APRIORI -->
+<section id="tab-apriori" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🛒 Tham Số Apriori</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Min Support (%):</label>
+                        <input type="number" id="ap-minsupp" class="form-control" value="50.0" step="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Min Confidence (%):</label>
+                        <input type="number" id="ap-minconf" class="form-control" value="70.0" step="5">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cơ sở dữ liệu Giao dịch (JSON):</label>
+                    <textarea id="ap-json-input" class="form-control code-editor" rows="7">[
+  {"tid": "T1", "items": ["Sữa", "Tã", "Bia"]},
+  {"tid": "T2", "items": ["Sữa", "Tã", "Bánh mì"]},
+  {"tid": "T3", "items": ["Sữa", "Bia", "Bánh mì"]},
+  {"tid": "T4", "items": ["Tã", "Bia", "Bánh mì"]},
+  {"tid": "T5", "items": ["Sữa", "Tã", "Bia", "Bánh mì"]}
+]</textarea>
+                </div>
+                <button id="btn-run-apriori" class="btn btn-primary btn-block">🛒 Khai Thác Tập Phổ Biến & Luật</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>📋 Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
+            </div>
+            <div class="card-body">
+                <div id="ap-bitvectors-box" class="table-responsive mb-3"></div>
+                <div id="ap-itemsets-box">
+                    <p class="placeholder-text">Các tập ứng viên $C_k$ và phổ biến $F_k$ sẽ được tạo tại đây.</p>
+                </div>
+                <h4 class="mt-4">⭐ Các Luật Kết Hợp Thỏa Mẫn MinConf</h4>
+                <div id="ap-rules-cards" class="rules-grid"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TAB 5: ID3 & NAIVE BAYES -->
+<section id="tab-classification" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🌳 Tập Dữ Liệu Huấn Luyện Phân Lớp</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Thuộc tính điều kiện:</label>
+                    <input type="text" id="cl-cond-attrs" class="form-control" value="Outlook, Temp, Humidity, Wind">
+                </div>
+                <div class="form-group">
+                    <label>Thuộc tính mục tiêu (Label):</label>
+                    <input type="text" id="cl-target-attr" class="form-control" value="Play">
+                </div>
+                <div class="form-group">
+                    <label>Tập dữ liệu PlayTennis (JSON):</label>
+                    <textarea id="cl-json-input" class="form-control code-editor" rows="6">[
+  {"Day": "D1", "Outlook": "Sunny", "Temp": "Hot", "Humidity": "High", "Wind": "Weak", "Play": "No"},
+  {"Day": "D2", "Outlook": "Sunny", "Temp": "Hot", "Humidity": "High", "Wind": "Strong", "Play": "No"},
+  {"Day": "D3", "Outlook": "Overcast", "Temp": "Hot", "Humidity": "High", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D4", "Outlook": "Rain", "Temp": "Mild", "Humidity": "High", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D5", "Outlook": "Rain", "Temp": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D6", "Outlook": "Rain", "Temp": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play": "No"},
+  {"Day": "D7", "Outlook": "Overcast", "Temp": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D8", "Outlook": "Sunny", "Temp": "Mild", "Humidity": "High", "Wind": "Weak", "Play": "No"},
+  {"Day": "D9", "Outlook": "Sunny", "Temp": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D10", "Outlook": "Rain", "Temp": "Mild", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D11", "Outlook": "Sunny", "Temp": "Mild", "Humidity": "Normal", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D12", "Outlook": "Overcast", "Temp": "Mild", "Humidity": "High", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D13", "Outlook": "Overcast", "Temp": "Hot", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D14", "Outlook": "Rain", "Temp": "Mild", "Humidity": "High", "Wind": "Strong", "Play": "No"}
+]</textarea>
+                </div>
+
+                <div class="form-group border-top pt-2">
+                    <label>Mẫu kiểm thử Naive Bayes (JSON):</label>
+                    <textarea id="nb-test-instance" class="form-control code-editor" rows="3">{"Outlook": "Sunny", "Temp": "Cool", "Humidity": "High", "Wind": "Strong"}</textarea>
+                </div>
+                <div class="form-check mb-3">
+                    <input type="checkbox" id="nb-laplace" class="form-check-input">
+                    <label for="nb-laplace">Hiệu chỉnh Laplace (Laplace Smoothing)</label>
+                </div>
+
+                <div class="btn-group-2">
+                    <button id="btn-run-id3" class="btn btn-primary">🌳 Xây Cây ID3 & Gain</button>
+                    <button id="btn-run-nb" class="btn btn-secondary">🎲 Dự Đoán Naive Bayes</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>🖼️ Trực Quan Cây Quyết Định & Xác Suất</h3>
+            </div>
+            <div class="card-body">
+                <div id="cl-mermaid-container" class="mermaid-box">
+                    <p class="placeholder-text">Sơ đồ Cây Quyết Định Mermaid.js sẽ hiển thị tại đây.</p>
+                </div>
+                <div id="cl-steps-output" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
