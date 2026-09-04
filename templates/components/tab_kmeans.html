@@ -1,0 +1,49 @@
+<!-- TAB 3: K-MEANS CLUSTERING [TV2 + TV4] -->
+<section id="tab-kmeans" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>📊 Tham Số Phân Cụm K-Means</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số cụm K:</label>
+                        <input type="number" id="km-k" class="form-control" value="2" min="2" max="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Số vòng lặp tối đa:</label>
+                        <input type="number" id="km-max-iter" class="form-control" value="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tập điểm không gian 2D (JSON):</label>
+                    <textarea id="km-points-input" class="form-control code-editor" rows="7">[
+  {"id": "P1", "x": 2.0, "y": 10.0},
+  {"id": "P2", "x": 2.0, "y": 5.0},
+  {"id": "P3", "x": 8.0, "y": 4.0},
+  {"id": "P4", "x": 5.0, "y": 8.0},
+  {"id": "P5", "x": 7.0, "y": 5.0},
+  {"id": "P6", "x": 6.0, "y": 4.0},
+  {"id": "P7", "x": 1.0, "y": 2.0},
+  {"id": "P8", "x": 4.0, "y": 9.0}
+]</textarea>
+                </div>
+                <button id="btn-run-kmeans" class="btn btn-primary btn-block">📈 Phân Cụm Step-by-Step</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header flex-between">
+                <h3>🎨 Biểu Đồ Dynamic 2D Scatter</h3>
+                <div id="km-step-controls" class="btn-group-sm"></div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="kmeansChart"></canvas>
+                </div>
+                <div id="km-tables-output" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</section>

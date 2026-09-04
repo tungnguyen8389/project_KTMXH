@@ -1,0 +1,49 @@
+<!-- TAB 2: ROUGH SET & REDUCT [TV1 + TV4] -->
+<section id="tab-roughset" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🧩 Hệ Thông Tin Tập Thô & Rút Gọn</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Thuộc tính điều kiện $C$ (phân cách bằng dấu phẩy):</label>
+                    <input type="text" id="rs-cond-attrs" class="form-control" value="a, b, c, d">
+                </div>
+                <div class="form-group">
+                    <label>Thuộc tính quyết định $D$:</label>
+                    <input type="text" id="rs-dec-attr" class="form-control" value="e">
+                </div>
+                <div class="form-group">
+                    <label>Bảng Hệ thông tin (JSON):</label>
+                    <textarea id="rs-json-input" class="form-control code-editor" rows="7">[
+  {"id": "x1", "a": 1, "b": 1, "c": 0, "d": 1, "e": 1},
+  {"id": "x2", "a": 1, "b": 0, "c": 0, "d": 1, "e": 1},
+  {"id": "x3", "a": 0, "b": 0, "c": 0, "d": 0, "e": 0},
+  {"id": "x4", "a": 1, "b": 1, "c": 0, "d": 0, "e": 0},
+  {"id": "x5", "a": 0, "b": 1, "c": 0, "d": 1, "e": 1},
+  {"id": "x6", "a": 0, "b": 0, "c": 0, "d": 1, "e": 0},
+  {"id": "x7", "a": 1, "b": 0, "c": 1, "d": 1, "e": 1},
+  {"id": "x8", "a": 0, "b": 1, "c": 1, "d": 0, "e": 0}
+]</textarea>
+                </div>
+                <div class="btn-group-2">
+                    <button id="btn-run-rs" class="btn btn-primary">🔍 Xấp Xỉ Trên/Dưới & k</button>
+                    <button id="btn-run-reduct" class="btn btn-secondary">⚡ Ma Trận Phân Biệt & Reduct</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>📐 Kết Quả Phân Tích Tập Thô</h3>
+            </div>
+            <div class="card-body">
+                <div id="rs-katex-output" class="formula-box">
+                    <p class="placeholder-text">Kết quả tính toán Xấp xỉ và Rút gọn Boole sẽ hiển thị tại đây.</p>
+                </div>
+                <div id="rs-matrix-output" class="table-responsive mt-3"></div>
+            </div>
+        </div>
+    </div>
+</section>

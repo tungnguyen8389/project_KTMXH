@@ -1,0 +1,62 @@
+<!-- TAB 1: PREPROCESSING [TV1 + TV4] -->
+<section id="tab-preprocessing" class="tab-panel active">
+    <div class="panel-grid">
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>⚙️ Dữ liệu & Tham số Chuẩn hóa</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Chọn thuật toán:</label>
+                    <select id="prep-type" class="form-control">
+                        <option value="minmax">Chuẩn hóa Min-Max</option>
+                        <option value="zscore">Chuẩn hóa Z-Score</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tên thuộc tính cần chuẩn hóa:</label>
+                        <input type="text" id="prep-feature" class="form-control" value="score">
+                    </div>
+                </div>
+                <div id="minmax-range-group" class="form-row">
+                    <div class="form-group">
+                        <label>New Min ($new\_min_A$):</label>
+                        <input type="number" id="prep-new-min" class="form-control" value="0.0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>New Max ($new\_max_A$):</label>
+                        <input type="number" id="prep-new-max" class="form-control" value="1.0" step="0.1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dữ liệu JSON mẫu:</label>
+                    <textarea id="prep-json-input" class="form-control code-editor" rows="6">[
+  {"sv_id": "SV01", "name": "A", "score": 4.5},
+  {"sv_id": "SV02", "name": "B", "score": 6.0},
+  {"sv_id": "SV03", "name": "C", "score": 7.5},
+  {"sv_id": "SV04", "name": "D", "score": 9.0},
+  {"sv_id": "SV05", "name": "E", "score": 10.0}
+]</textarea>
+                </div>
+                <button id="btn-run-prep" class="btn btn-primary btn-block">🚀 Thực thi Chuẩn hóa</button>
+            </div>
+        </div>
+
+        <!-- Result Trace Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>📝 Chi tiết Các Bước Tính Toán</h3>
+            </div>
+            <div class="card-body">
+                <div id="prep-formula-box" class="formula-box"></div>
+                <div id="prep-steps-output" class="steps-container">
+                    <p class="placeholder-text">Vui lòng bấm "Thực thi Chuẩn hóa" để hiển thị chi tiết các bước toán học.</p>
+                </div>
+                <h4 class="mt-4">📊 Bảng Kết Quả Sau Chuẩn Hóa</h4>
+                <div id="prep-table-output" class="table-responsive"></div>
+            </div>
+        </div>
+    </div>
+</section>

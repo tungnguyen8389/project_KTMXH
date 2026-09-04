@@ -1,0 +1,65 @@
+<!-- TAB 5: ID3 & NAIVE BAYES CLASSIFICATION [TV3 + TV4] -->
+<section id="tab-classification" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🌳 Tập Dữ Liệu Huấn Luyện Phân Lớp</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Thuộc tính điều kiện:</label>
+                    <input type="text" id="cl-cond-attrs" class="form-control" value="Outlook, Temp, Humidity, Wind">
+                </div>
+                <div class="form-group">
+                    <label>Thuộc tính mục tiêu (Label):</label>
+                    <input type="text" id="cl-target-attr" class="form-control" value="Play">
+                </div>
+                <div class="form-group">
+                    <label>Tập dữ liệu PlayTennis (JSON):</label>
+                    <textarea id="cl-json-input" class="form-control code-editor" rows="6">[
+  {"Day": "D1", "Outlook": "Sunny", "Temp": "Hot", "Humidity": "High", "Wind": "Weak", "Play": "No"},
+  {"Day": "D2", "Outlook": "Sunny", "Temp": "Hot", "Humidity": "High", "Wind": "Strong", "Play": "No"},
+  {"Day": "D3", "Outlook": "Overcast", "Temp": "Hot", "Humidity": "High", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D4", "Outlook": "Rain", "Temp": "Mild", "Humidity": "High", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D5", "Outlook": "Rain", "Temp": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D6", "Outlook": "Rain", "Temp": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play": "No"},
+  {"Day": "D7", "Outlook": "Overcast", "Temp": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D8", "Outlook": "Sunny", "Temp": "Mild", "Humidity": "High", "Wind": "Weak", "Play": "No"},
+  {"Day": "D9", "Outlook": "Sunny", "Temp": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D10", "Outlook": "Rain", "Temp": "Mild", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D11", "Outlook": "Sunny", "Temp": "Mild", "Humidity": "Normal", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D12", "Outlook": "Overcast", "Temp": "Mild", "Humidity": "High", "Wind": "Strong", "Play": "Yes"},
+  {"Day": "D13", "Outlook": "Overcast", "Temp": "Hot", "Humidity": "Normal", "Wind": "Weak", "Play": "Yes"},
+  {"Day": "D14", "Outlook": "Rain", "Temp": "Mild", "Humidity": "High", "Wind": "Strong", "Play": "No"}
+]</textarea>
+                </div>
+
+                <div class="form-group border-top pt-2">
+                    <label>Mẫu kiểm thử Naive Bayes (JSON):</label>
+                    <textarea id="nb-test-instance" class="form-control code-editor" rows="3">{"Outlook": "Sunny", "Temp": "Cool", "Humidity": "High", "Wind": "Strong"}</textarea>
+                </div>
+                <div class="form-check mb-3">
+                    <input type="checkbox" id="nb-laplace" class="form-check-input">
+                    <label for="nb-laplace">Hiệu chỉnh Laplace (Laplace Smoothing)</label>
+                </div>
+
+                <div class="btn-group-2">
+                    <button id="btn-run-id3" class="btn btn-primary">🌳 Xây Cây ID3 & Gain</button>
+                    <button id="btn-run-nb" class="btn btn-secondary">🎲 Dự Đoán Naive Bayes</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>🖼️ Trực Quan Cây Quyết Định & Xác Suất</h3>
+            </div>
+            <div class="card-body">
+                <div id="cl-mermaid-container" class="mermaid-box">
+                    <p class="placeholder-text">Sơ đồ Cây Quyết Định Mermaid.js sẽ hiển thị tại đây.</p>
+                </div>
+                <div id="cl-steps-output" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</section>

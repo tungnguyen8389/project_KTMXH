@@ -1,0 +1,47 @@
+<!-- TAB 4: APRIORI ASSOCIATION RULES [TV2 + TV4] -->
+<section id="tab-apriori" class="tab-panel">
+    <div class="panel-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>🛒 Tham Số Apriori</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Min Support (%):</label>
+                        <input type="number" id="ap-minsupp" class="form-control" value="50.0" step="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Min Confidence (%):</label>
+                        <input type="number" id="ap-minconf" class="form-control" value="70.0" step="5">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cơ sở dữ liệu Giao dịch (JSON):</label>
+                    <textarea id="ap-json-input" class="form-control code-editor" rows="7">[
+  {"tid": "T1", "items": ["Sữa", "Tã", "Bia"]},
+  {"tid": "T2", "items": ["Sữa", "Tã", "Bánh mì"]},
+  {"tid": "T3", "items": ["Sữa", "Bia", "Bánh mì"]},
+  {"tid": "T4", "items": ["Tã", "Bia", "Bánh mì"]},
+  {"tid": "T5", "items": ["Sữa", "Tã", "Bia", "Bánh mì"]}
+]</textarea>
+                </div>
+                <button id="btn-run-apriori" class="btn btn-primary btn-block">🛒 Khai Thác Tập Phổ Biến & Luật</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>📋 Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
+            </div>
+            <div class="card-body">
+                <div id="ap-bitvectors-box" class="table-responsive mb-3"></div>
+                <div id="ap-itemsets-box">
+                    <p class="placeholder-text">Các tập ứng viên $C_k$ và phổ biến $F_k$ sẽ được tạo tại đây.</p>
+                </div>
+                <h4 class="mt-4">⭐ Các Luật Kết Hợp Thỏa Mẫn MinConf</h4>
+                <div id="ap-rules-cards" class="rules-grid"></div>
+            </div>
+        </div>
+    </div>
+</section>
