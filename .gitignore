@@ -10,3 +10,4 @@ ENV/
 .DS_Store
 .idea/
 .vscode/
+GIT_WORKFLOW.md
