@@ -1,61 +1,63 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Khai Thác Truyền Thông Mạng Xã Hội - Algorithm Visualizer{% endblock %}</title>
+    <title>{% block title %}Demo - Khai Thác Truyền Thông Mạng Xã Hội - Algorithm Visualizer{% endblock %}</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap"
+        rel="stylesheet">
 
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-icon">🌐</div>
+
                 <div class="brand-text">
-                    <h2>Social Mining</h2>
-                    <span>Step-by-Step Visualizer</span>
+                    <h2>Môn KKTMXH</h2>
+                    <span>Nhóm </span>
                 </div>
             </div>
 
             <nav class="nav-menu">
                 <button class="nav-item active" data-tab="tab-preprocessing">
-                    <span class="icon">⚙️</span>
                     <span class="text">1. Tiền xử lý Dữ liệu</span>
                 </button>
                 <button class="nav-item" data-tab="tab-roughset">
-                    <span class="icon">🧩</span>
                     <span class="text">2. Tập thô & Rút gọn</span>
                 </button>
                 <button class="nav-item" data-tab="tab-kmeans">
-                    <span class="icon">📊</span>
                     <span class="text">3. Phân cụm K-Means</span>
                 </button>
                 <button class="nav-item" data-tab="tab-apriori">
-                    <span class="icon">🛒</span>
                     <span class="text">4. Luật kết hợp Apriori</span>
                 </button>
                 <button class="nav-item" data-tab="tab-classification">
-                    <span class="icon">🌳</span>
                     <span class="text">5. ID3 & Naive Bayes</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
                 <div class="team-badge">
-                    <p><strong>Django MVT + REST API</strong></p>
-                    <p><small>Framework 4 Thành Viên</small></p>
+                    <p><strong>Django MVT</strong></p>
+                    <p><small>Nguyễn Minh Tùng - 23730223</small></p>
+                    <p><small>Nguyễn Thanh Nguyên Vũ - 23730..</small></p>
+                    <p><small>Lê Đức Toàn - 237302..</small></p>
+                    <p><small>Nguyễn Đức Huy - 23730..</small></p>
                 </div>
             </div>
         </aside>
@@ -66,11 +68,9 @@
             <header class="topbar">
                 <div class="topbar-title">
                     <h1 id="page-heading">Tiền xử lý Dữ liệu (Min-Max & Z-Score)</h1>
-                    <p class="subtitle">Minh họa từng bước toán học chuẩn bài giảng</p>
+                    <p class="subtitle">Minh họa từng bước của các thuật toán khai phá dữ liệu</p>
                 </div>
-                <div class="topbar-actions">
-                    <span class="status-indicator online">● DRF API Ready</span>
-                </div>
+
             </header>
 
             <!-- Dashboard Content Container -->
@@ -98,4 +98,5 @@
 
     {% block scripts %}{% endblock %}
 </body>
+
 </html>
