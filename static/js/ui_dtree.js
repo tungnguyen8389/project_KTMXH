@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Render Gain calculation steps
                 const stepsOutput = document.getElementById('cl-steps-output');
-                let html = `<h4>📊 Chi Tiết Tính Entropy & Information Gain theo Cấp Nút</h4>`;
+                let html = `<h4>Chi Tiết Tính Entropy & Information Gain theo Cấp Nút</h4>`;
                 res.steps.forEach((step, idx) => {
                     html += `<div class="step-card my-2">
-                        <p><strong>Nút Split ${idx+1} (${step.parent_label}):</strong> Mẫu = ${step.node_samples} (Pos = ${step.p_count}, Neg = ${step.n_count})</p>
+                        <p><strong>Nút Split ${idx + 1} (${step.parent_label}):</strong> Mẫu = ${step.node_samples} (Pos = ${step.p_count}, Neg = ${step.n_count})</p>
                         <p>$$Entropy(S) = I(${step.p_count}, ${step.n_count}) = ${step.info_p_n}$$</p>
                         <ul class="mt-2">`;
                     Object.entries(step.attr_details).forEach(([attr, det]) => {
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 stepsOutput.innerHTML = html;
                 if (window.renderMathInElement) {
-                    renderMathInElement(stepsOutput, { delimiters: [{left: '$$', right: '$$', display: true}] });
+                    renderMathInElement(stepsOutput, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
 
             } catch (e) {
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const mermaidContainer = document.getElementById('cl-mermaid-container');
                 mermaidContainer.innerHTML = `<div class="card p-3" style="width:100%; border:none; background:#ffffff;">
-                    <h3>🎲 Dự Đoán Naive Bayes Classifier</h3>
+                    <h3>Dự Đoán Naive Bayes Classifier</h3>
                     <p class="mt-2"><strong>Mẫu thử nghiệm X:</strong> <code>${JSON.stringify(res.test_instance)}</code></p>
                     <p><strong>Hiệu chỉnh Laplace:</strong> ${res.use_laplace ? '<span style="color:#059669; font-weight:bold;">Đang bật</span>' : 'Tắt'}</p>
                     <div class="formula-box mt-3">
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
 
                 const stepsOutput = document.getElementById('cl-steps-output');
-                let html = `<h4>📐 Bước Tính Xác Suất Hậu Kỳ P(C_i | X)</h4>`;
+                let html = `<h4>Bước Tính Xác Suất Hậu Kỳ P(C_i | X)</h4>`;
                 res.katex_steps.forEach(step => {
                     html += `<div class="step-card my-2">
                         <p><strong>Lớp ${step.class_val}:</strong></p>
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 stepsOutput.innerHTML = html;
                 if (window.renderMathInElement) {
-                    renderMathInElement(stepsOutput, { delimiters: [{left: '$$', right: '$$', display: true}] });
+                    renderMathInElement(stepsOutput, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
 
             } catch (e) {

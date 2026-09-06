@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formulaBox = document.getElementById('prep-formula-box');
                 formulaBox.innerHTML = `$$\\text{Công thức: } ${res.formula_katex}$$`;
                 if (window.renderMathInElement) {
-                    renderMathInElement(formulaBox, { delimiters: [{left: '$$', right: '$$', display: true}] });
+                    renderMathInElement(formulaBox, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
 
                 // Render Steps
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `).join('');
                 if (window.renderMathInElement) {
-                    renderMathInElement(stepsOutput, { delimiters: [{left: '\\times', right: '', display: false}, {left: '\\frac', right: '', display: false}] });
+                    renderMathInElement(stepsOutput, { delimiters: [{ left: '\\times', right: '', display: false }, { left: '\\frac', right: '', display: false }] });
                 }
 
                 // Render Table
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 katexBox.innerHTML = katexHtml;
                 if (window.renderMathInElement) {
-                    renderMathInElement(katexBox, { delimiters: [{left: '$$', right: '$$', display: true}] });
+                    renderMathInElement(katexBox, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
             } catch (e) {
                 console.error(e);
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await API.post('reduct', payload);
 
                 const katexBox = document.getElementById('rs-katex-output');
-                let html = `<h3>⚡ Ma Trận Phân Biệt $n \\times n$ & Rút Gọn Boole</h3>`;
+                let html = `<h3>Ma Trận Phân Biệt $n \\times n$ & Rút Gọn Boole</h3>`;
                 html += `<p>$$${res.katex_formula}$$</p>`;
                 html += `<p><strong>Các Tập Rút Gọn Tối Thiểu RED(C):</strong></p>`;
                 html += `<ul>${res.minimal_reducts.map(r => `<li>$$RED = \\{ ${r.join(', ')} \\}$$</li>`).join('')}</ul>`;
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 matrixBox.innerHTML = mHtml;
 
                 if (window.renderMathInElement) {
-                    renderMathInElement(katexBox, { delimiters: [{left: '$$', right: '$$', display: true}] });
+                    renderMathInElement(katexBox, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
             } catch (e) {
                 console.error(e);
