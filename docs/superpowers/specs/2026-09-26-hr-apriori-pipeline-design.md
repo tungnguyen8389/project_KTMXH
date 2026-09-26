@@ -79,8 +79,9 @@ encode_transactions(df, columns=None, target="Attrition", n_bins=3)
     - `YearsAtCompany`: `New` (<3), `Established` (3–10), `Veteran` (>10)
   - **Other numerics** → `pandas.qcut(..., duplicates="drop")` labeled
     `Low|Medium|High`.
-  - A numeric column whose `nunique <= n_bins` (e.g. ordinals like
-    `WorkLifeBalance`) is treated as categorical instead of binned.
+  - A numeric column with few distinct values (`nunique <= 6`, e.g. ordinals
+    like `WorkLifeBalance`, `JobSatisfaction`, both 1–4) is treated as
+    categorical (`Col=3`) instead of binned.
   - Bin definitions live in one small config dict so labels stay auditable.
 - **Categorical column** → token `Col=Value`.
 - Each row → `{"tid": "T{i+1}", "items": [tokens…]}`.
