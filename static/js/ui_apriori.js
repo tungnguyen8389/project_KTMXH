@@ -73,18 +73,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let bvHtml = '<h4>1. Bảng Nhị Phân v(X)</h4>';
                 bvHtml += `<p class="placeholder-text">${keepRows.length} giao dịch khớp mục tiêu × ${items.length} mục${keepRows.length > ROW_CAP ? ` (hiển thị ${ROW_CAP} hàng đầu)` : ''}.</p>`;
-                bvHtml += '<table><thead><tr><th>Giao dịch</th>';
-                items.forEach(it => bvHtml += `<th>${it}</th>`);
+                const thSticky = 'position:sticky;top:0;background:#f1f5f9;z-index:2';
+                bvHtml += '<div style="max-height:480px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">';
+                bvHtml += '<table style="margin:0"><thead><tr>';
+                bvHtml += `<th style="${thSticky};left:0;z-index:3">Giao dịch</th>`;
+                items.forEach(it => bvHtml += `<th style="${thSticky}">${it}</th>`);
                 bvHtml += '</tr></thead><tbody>';
                 shownRows.forEach(i => {
-                    bvHtml += `<tr><td><strong>T${i + 1}</strong></td>`;
+                    bvHtml += `<tr><td style="position:sticky;left:0;background:#fff;font-weight:bold">T${i + 1}</td>`;
                     items.forEach(it => {
                         const val = res.bitvectors[it][i];
                         bvHtml += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : 'color:#94a3b8'}">${val}</td>`;
                     });
                     bvHtml += '</tr>';
                 });
-                bvHtml += '</tbody></table>';
+                bvHtml += '</tbody></table></div>';
                 bitvectorsBox.innerHTML = bvHtml;
 
                 // 3. Frequent-itemset cards (F_k) for the entered k — 3 per row,
