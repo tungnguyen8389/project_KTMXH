@@ -58,12 +58,14 @@
             <div class="card-header">
                 <h3>Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
             </div>
-            <div class="card-body">
+            <div class="card-body" style="display:flex;flex-direction:column;gap:2rem;">
                 <!-- 1. Binary table (row per transaction) -->
-                <div id="ap-bitvectors-box" class="table-responsive mb-4"></div>
+                <div id="ap-bitvectors-box" class="table-responsive"></div>
                 <!-- 2. Rule cards satisfying min confidence -->
-                <h4 class="mt-2">Các Luật Kết Hợp Thỏa Mãn MinConf</h4>
-                <div id="ap-rules-cards" class="rules-grid mb-4"></div>
+                <div>
+                    <h4 class="mb-2">Các Luật Kết Hợp Thỏa Mãn MinConf</h4>
+                    <div id="ap-rules-cards" class="rules-grid"></div>
+                </div>
                 <!-- 3. Frequent-itemset cards -->
                 <div id="ap-itemsets-box">
                     <p class="placeholder-text">Các tập phổ biến $F_k$ sẽ được tạo tại đây.</p>
