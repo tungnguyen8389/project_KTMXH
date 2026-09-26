@@ -146,7 +146,8 @@ class ID3APIView(APIView):
             if not data_list or not condition_attrs or not target_attr:
                 return Response({'error': 'Thiếu tham số data, condition_attrs hoặc target_attr!'}, status=status.HTTP_400_BAD_REQUEST)
 
-            result = ClassificationEngine.run_id3(data_list, condition_attrs, target_attr)
+            criterion = payload.get('criterion', 'gain')
+            result = ClassificationEngine.run_id3(data_list, condition_attrs, target_attr, criterion=criterion)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

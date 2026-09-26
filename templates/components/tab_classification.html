@@ -39,6 +39,15 @@
                     <textarea id="nb-test-instance" class="form-control code-editor"
                         rows="3">{"Outlook": "Sunny", "Temp": "Cool", "Humidity": "High", "Wind": "Strong"}</textarea>
                 </div>
+                <div class="form-group">
+                    <label for="id3-criterion">Độ đo chọn thuộc tính (ID3):</label>
+                    <select id="id3-criterion" class="form-control">
+                        <option value="gain" selected>Information Gain (Entropy đa lớp - Slide 40)</option>
+                        <option value="gini">Gini Index (Slide 39)</option>
+                        <option value="quinlan">Quinlan - số vector đơn vị (Slide 27, 33)</option>
+                    </select>
+                </div>
+
                 <div class="form-check mb-3">
                     <input type="checkbox" id="nb-laplace" class="form-check-input">
                     <label for="nb-laplace">Hiệu chỉnh Laplace (Laplace Smoothing)</label>

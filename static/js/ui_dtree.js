@@ -14,10 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const condAttrs = document.getElementById('cl-cond-attrs').value.split(',').map(s => s.trim());
             const targetAttr = document.getElementById('cl-target-attr').value.trim();
             const jsonRaw = document.getElementById('cl-json-input').value;
+            const criterion = (document.getElementById('id3-criterion') || {}).value || 'gain';
 
             try {
                 const data = JSON.parse(jsonRaw);
-                const payload = { condition_attrs: condAttrs, target_attr: targetAttr, data };
+                const payload = { condition_attrs: condAttrs, target_attr: targetAttr, data, criterion };
                 const res = await API.post('id3', payload);
 
                 // Render Mermaid Diagram
@@ -30,18 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Render Gain calculation steps
                 const stepsOutput = document.getElementById('cl-steps-output');
                 let html = `<h4>Chi Tiết Tính Entropy & Information Gain theo Cấp Nút</h4>`;
+                const crit = res.criterion || 'gain';
                 res.steps.forEach((step, idx) => {
+                    const ccStr = Object.entries(step.class_counts || {}).map(([k, v]) => `${k}=${v}`).join(', ');
                     html += `<div class="step-card my-2">
-                        <p><strong>Nút Split ${idx + 1} (${step.parent_label}):</strong> Mẫu = ${step.node_samples} (Pos = ${step.p_count}, Neg = ${step.n_count})</p>
-                        <p>$$Entropy(S) = I(${step.p_count}, ${step.n_count}) = ${step.info_p_n}$$</p>
+                        <p><strong>Nút Split ${idx + 1} (${step.parent_label}):</strong> Mẫu = ${step.node_samples} [${ccStr}] · Tiêu chí = <em>${crit}</em></p>
+                        <p>$$Entropy(S) = ${step.info} \\quad Gini(S) = ${step.gini}$$</p>
                         <ul class="mt-2">`;
                     Object.entries(step.attr_details).forEach(([attr, det]) => {
                         const isMax = attr === step.selected_best_attr;
-                        html += `<li style="${isMax ? 'color:#4f46e5; font-weight:bold;' : ''}">
-                            Gain(${attr}) = ${step.info_p_n} - ${det.expected_entropy_E} = ${det.gain}
-                        </li>`;
+                        const metric = crit === 'gini'
+                            ? `Gini_split(${attr}) = ${det.gini_split}`
+                            : crit === 'quinlan'
+                                ? `Quinlan(${attr}): #vector đơn vị = ${det.unit_count}, Gain = ${det.gain}`
+                                : `Gain(${attr}) = ${step.info} - ${det.expected_entropy_E} = ${det.gain}`;
+                        html += `<li style="${isMax ? 'color:#4f46e5; font-weight:bold;' : ''}">${metric}</li>`;
                     });
-                    html += `</ul><p class="mt-2">➔ <strong>Chọn thuộc tính chia: <span style="color:#059669">${step.selected_best_attr}</span> (Gain max = ${step.max_gain})</strong></p></div>`;
+                    html += `</ul><p class="mt-2">➔ <strong>Chọn thuộc tính chia: <span style="color:#059669">${step.selected_best_attr}</span></strong></p></div>`;
                 });
 
                 stepsOutput.innerHTML = html;
@@ -88,7 +94,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
 
                 const stepsOutput = document.getElementById('cl-steps-output');
-                let html = `<h4>Bước Tính Xác Suất Hậu Kỳ P(C_i | X)</h4>`;
+                let html = '';
+                if (res.likelihood_table) {
+                    const classes = res.classes || Object.keys(res.class_priors || {});
+                    html += `<h4>Bảng Likelihood P(attr = val | Class) — Slide Bài 5.1</h4>`;
+                    Object.entries(res.likelihood_table).forEach(([attr, valMap]) => {
+                        html += `<table class="table table-sm my-2"><thead><tr><th>${attr}</th>${classes.map(c => `<th>P(·|${c})</th>`).join('')}</tr></thead><tbody>`;
+                        Object.entries(valMap).forEach(([val, classProbs]) => {
+                            html += `<tr><td><strong>${val}</strong></td>${classes.map(c => `<td>${classProbs[c] ?? 0}</td>`).join('')}</tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    });
+                }
+                html += `<h4>Bước Tính Xác Suất Hậu Kỳ P(C_i | X)</h4>`;
                 res.katex_steps.forEach(step => {
                     html += `<div class="step-card my-2">
                         <p><strong>Lớp ${step.class_val}:</strong></p>
