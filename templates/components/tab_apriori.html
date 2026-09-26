@@ -1,6 +1,6 @@
 <!-- TAB 4: APRIORI ASSOCIATION RULES [TV2 + TV4] -->
 <section id="tab-apriori" class="tab-panel">
-    <div class="panel-grid">
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
         <div class="card">
             <div class="card-header">
                 <h3>Tham Số Apriori</h3>
@@ -27,6 +27,14 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Lọc mục tiêu:</label>
+                    <select id="ap-target" class="form-control">
+                        <option value="yes" selected>Chỉ luật dẫn đến Nghỉ việc (Attrition=Yes)</option>
+                        <option value="attrition">Chỉ luật liên quan Attrition (Yes/No)</option>
+                        <option value="all">Tất cả luật</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <button id="btn-encode-hr" type="button" class="btn btn-secondary btn-block">
                         Dùng dữ liệu đã nhập (HR)
                     </button>
@@ -51,15 +59,6 @@
                 <h3>Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
             </div>
             <div class="card-body">
-                <!-- 0. Filter on top -->
-                <div class="form-group">
-                    <label>Lọc mục tiêu:</label>
-                    <select id="ap-target" class="form-control">
-                        <option value="yes" selected>Chỉ luật dẫn đến Nghỉ việc (Attrition=Yes)</option>
-                        <option value="attrition">Chỉ luật liên quan Attrition (Yes/No)</option>
-                        <option value="all">Tất cả luật</option>
-                    </select>
-                </div>
                 <!-- 1. Binary table (row per transaction) -->
                 <div id="ap-bitvectors-box" class="table-responsive mb-4"></div>
                 <!-- 2. Rule cards satisfying min confidence -->
