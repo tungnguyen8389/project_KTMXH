@@ -34,23 +34,21 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="tab-preprocessing">
-                    <span class="text">1. Tiền xử lý Dữ liệu</span>
+                <button class="nav-item active" data-tab="tab-import">
+                    <span class="text">Nhập Dữ liệu (CSV)</span>
                 </button>
-                <button class="nav-item" data-tab="tab-apriori">
+                <button class="nav-item locked" data-tab="tab-apriori">
                     <span class="text">2. Tập phổ biến & luật kết hợp</span>
                 </button>
-                <button class="nav-item" data-tab="tab-classification">
+                <button class="nav-item locked" data-tab="tab-classification">
                     <span class="text">3. ID3 & Naive Bayes</span>
                 </button>
-                <button class="nav-item" data-tab="tab-roughset">
+                <button class="nav-item locked" data-tab="tab-roughset">
                     <span class="text">4. Tập thô & Rút gọn</span>
                 </button>
-                <button class="nav-item" data-tab="tab-kmeans">
+                <button class="nav-item locked" data-tab="tab-kmeans">
                     <span class="text">5. Phân cụm K-Means</span>
                 </button>
-
-
             </nav>
 
             <div class="sidebar-footer">
@@ -69,7 +67,7 @@
             <!-- Topbar -->
             <header class="topbar">
                 <div class="topbar-title">
-                    <h1 id="page-heading">Tiền xử lý Dữ liệu (Min-Max & Z-Score)</h1>
+                    <h1 id="page-heading">Nhập Dữ liệu từ tệp CSV</h1>
                     <p class="subtitle">Minh họa từng bước của các thuật toán khai phá dữ liệu</p>
                 </div>
 
@@ -97,6 +95,7 @@
     <script src="{% static 'js/ui_kmeans.js' %}"></script>
     <script src="{% static 'js/ui_dtree.js' %}"></script>
     <script src="{% static 'js/ui_apriori.js' %}"></script>
+    <script src="{% static 'js/ui_import.js' %}"></script>
 
     {% block scripts %}{% endblock %}
 </body>

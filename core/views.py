@@ -1,10 +1,13 @@
 import json
+import pandas as pd
 from django.views.generic import TemplateView
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Dataset
+from .data_cleaning import clean_dataframe
 from .algorithms.preprocessing import PreprocessingEngine
 from .algorithms.rough_set import RoughSetEngine
 from .algorithms.reduct import ReductEngine
@@ -35,6 +38,54 @@ class DatasetListAPIView(APIView):
             'data_json': ds.data_json
         } for ds in datasets]
         return Response(data, status=status.HTTP_200_OK)
+
+
+class DatasetImportAPIView(APIView):
+    """[TV3] Import a CSV file, parse it into records and persist a new Dataset row"""
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        try:
+            upload = request.FILES.get('file')
+            if upload is None:
+                return Response({'error': 'Thiếu tệp CSV (trường file)!'}, status=status.HTTP_400_BAD_REQUEST)
+            if not upload.name.lower().endswith('.csv'):
+                return Response({'error': 'Chỉ hỗ trợ tệp định dạng .csv!'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                df = pd.read_csv(upload)
+            except Exception as e:
+                return Response({'error': f'Không đọc được tệp CSV: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if df.empty:
+                return Response({'error': 'Tệp CSV không có dữ liệu!'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Data cleaning: drop useless columns, trim junk, fill missing values.
+            df, cleaning = clean_dataframe(df)
+
+            # to_json -> loads keeps native Python scalars (JSONField-safe), matching seed data_json shape
+            records = json.loads(df.to_json(orient='records'))
+            name = (upload.name.rsplit('.', 1)[0] or 'Dữ liệu đã nhập')[:250]
+
+            # Single working dataset: importing replaces whatever was there before.
+            Dataset.objects.all().delete()
+            dataset = Dataset.objects.create(
+                name=name,
+                category='CLASSIFICATION',
+                description=f'Bộ dữ liệu đã nhập: {len(records)} dòng, {len(df.columns)} cột.',
+                data_json=records,
+            )
+
+            return Response({
+                'id': dataset.id,
+                'name': dataset.name,
+                'row_count': len(records),
+                'columns': list(df.columns),
+                'cleaning': cleaning,
+                'data_json': records,
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PreprocessingAPIView(APIView):

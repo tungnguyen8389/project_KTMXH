@@ -2,57 +2,7 @@
  * [TV4] UI Script for Preprocessing, Rough Set, and Reduct Visualizations
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // ---------------- 1. PREPROCESSING EVENT LISTENER ----------------
-    const btnRunPrep = document.getElementById('btn-run-prep');
-    if (btnRunPrep) {
-        btnRunPrep.addEventListener('click', async () => {
-            const type = document.getElementById('prep-type').value;
-            const feature = document.getElementById('prep-feature').value;
-            const newMin = parseFloat(document.getElementById('prep-new-min').value);
-            const newMax = parseFloat(document.getElementById('prep-new-max').value);
-            const jsonRaw = document.getElementById('prep-json-input').value;
-
-            try {
-                const data = JSON.parse(jsonRaw);
-                const payload = { type, feature, new_min: newMin, new_max: newMax, data };
-                const res = await API.post('preprocessing', payload);
-
-                // Render KaTeX Formula
-                const formulaBox = document.getElementById('prep-formula-box');
-                formulaBox.innerHTML = `$$\\text{Công thức: } ${res.formula_katex}$$`;
-                if (window.renderMathInElement) {
-                    renderMathInElement(formulaBox, { delimiters: [{ left: '$$', right: '$$', display: true }] });
-                }
-
-                // Render Steps
-                const stepsOutput = document.getElementById('prep-steps-output');
-                stepsOutput.innerHTML = res.steps.map(step => `
-                    <div class="step-card">
-                        <div>${step}</div>
-                    </div>
-                `).join('');
-                if (window.renderMathInElement) {
-                    renderMathInElement(stepsOutput, { delimiters: [{ left: '\\times', right: '', display: false }, { left: '\\frac', right: '', display: false }] });
-                }
-
-                // Render Table
-                const tableOutput = document.getElementById('prep-table-output');
-                if (res.result_data.length > 0) {
-                    const keys = Object.keys(res.result_data[0]);
-                    let html = '<table><thead><tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr></thead><tbody>';
-                    res.result_data.forEach(row => {
-                        html += '<tr>' + keys.map(k => `<td>${row[k]}</td>`).join('') + '</tr>';
-                    });
-                    html += '</tbody></table>';
-                    tableOutput.innerHTML = html;
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        });
-    }
-
-    // ---------------- 2. ROUGH SET EVENT LISTENER ----------------
+    // ---------------- 1. ROUGH SET EVENT LISTENER ----------------
     const btnRunRS = document.getElementById('btn-run-rs');
     if (btnRunRS) {
         btnRunRS.addEventListener('click', async () => {

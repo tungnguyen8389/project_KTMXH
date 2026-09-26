@@ -1,0 +1,34 @@
+<!-- TAB 6: IMPORT DỮ LIỆU CSV -->
+<section id="tab-import" class="tab-panel active">
+    <div class="panel-grid">
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Nhập Bộ Dữ Liệu Từ Tệp CSV</h3>
+            </div>
+            <div class="card-body">
+                <p class="placeholder-text">Nhập một tệp .csv. Bộ dữ liệu này sẽ được dùng cho tất cả các tab thuật toán.</p>
+                <div class="form-group">
+                    <label>Chọn tệp .csv:</label>
+                    <input type="file" id="import-file" class="form-control" accept=".csv">
+                </div>
+                <button id="btn-run-import" class="btn btn-primary btn-block">Nhập Dữ Liệu</button>
+            </div>
+        </div>
+
+        <!-- Result Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Kết Quả Nhập</h3>
+            </div>
+            <div class="card-body">
+                <div id="import-summary" class="formula-box"></div>
+                <div id="import-steps-output" class="steps-container">
+                    <p class="placeholder-text">Chọn tệp CSV và bấm "Nhập Dữ Liệu" để lưu bộ dữ liệu vào hệ thống.</p>
+                </div>
+                <h4 class="mt-4">Xem Trước Dữ Liệu (10 dòng đầu)</h4>
+                <div id="import-table-output" class="table-responsive"></div>
+            </div>
+        </div>
+    </div>
+</section>
