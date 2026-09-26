@@ -71,17 +71,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ROW_CAP = 50;
                 const shownRows = keepRows.slice(0, ROW_CAP);
 
+                // When filtering to leavers only, every row already has
+                // Attrition=Yes, so the Attrition columns are redundant — drop them.
+                const displayItems = (targetMode === 'yes')
+                    ? items.filter(it => !it.startsWith('Attrition='))
+                    : items;
+
                 let bvHtml = '<h4>1. Bảng Nhị Phân v(X)</h4>';
-                bvHtml += `<p class="placeholder-text">${keepRows.length} giao dịch khớp mục tiêu × ${items.length} mục${keepRows.length > ROW_CAP ? ` (hiển thị ${ROW_CAP} hàng đầu)` : ''}.</p>`;
+                bvHtml += `<p class="placeholder-text">${keepRows.length} giao dịch khớp mục tiêu × ${displayItems.length} mục${keepRows.length > ROW_CAP ? ` (hiển thị ${ROW_CAP} hàng đầu)` : ''}.</p>`;
                 const thSticky = 'position:sticky;top:0;background:#f1f5f9;z-index:2';
                 bvHtml += '<div style="max-height:480px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">';
                 bvHtml += '<table style="margin:0;width:max-content;border-collapse:separate;border-spacing:0;overflow:visible;border:0"><thead><tr>';
                 bvHtml += `<th style="${thSticky};left:0;z-index:3">Giao dịch</th>`;
-                items.forEach(it => bvHtml += `<th style="${thSticky}">${it}</th>`);
+                displayItems.forEach(it => bvHtml += `<th style="${thSticky}">${it}</th>`);
                 bvHtml += '</tr></thead><tbody>';
                 shownRows.forEach(i => {
                     bvHtml += `<tr><td style="position:sticky;left:0;background:#fff;font-weight:bold">T${i + 1}</td>`;
-                    items.forEach(it => {
+                    displayItems.forEach(it => {
                         const val = res.bitvectors[it][i];
                         bvHtml += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : 'color:#94a3b8'}">${val}</td>`;
                     });
