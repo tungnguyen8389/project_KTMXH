@@ -1,4 +1,27 @@
-import itertools
+def _combinations(iterable, r):
+    """Hand-coded k-subset generator (no library helpers).
+
+    Yields length-r tuples of items from `iterable` in lexicographic index
+    order. Used by rule generation so the mining algorithm relies on no
+    third-party or stdlib combinatorics helper at all.
+    """
+    pool = tuple(iterable)
+    n = len(pool)
+    if r > n:
+        return
+    indices = list(range(r))
+    yield tuple(pool[i] for i in indices)
+    while True:
+        for i in reversed(range(r)):
+            if indices[i] != i + n - r:
+                break
+        else:
+            return
+        indices[i] += 1
+        for j in range(i + 1, r):
+            indices[j] = indices[j - 1] + 1
+        yield tuple(pool[i] for i in indices)
+
 
 class AprioriEngine:
     """
@@ -119,7 +142,7 @@ class AprioriEngine:
                 items_in_set = list(f_set)
                 # Generate non-empty proper subsets A
                 for r in range(1, len(items_in_set)):
-                    for subset_A_tuple in itertools.combinations(items_in_set, r):
+                    for subset_A_tuple in _combinations(items_in_set, r):
                         subset_A = frozenset(subset_A_tuple)
                         subset_B = f_set - subset_A
                         supp_A = frequent_itemsets.get(subset_A, 0)

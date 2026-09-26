@@ -70,3 +70,37 @@ class AlgorithmTestCase(TestCase):
 
         nb = ClassificationEngine.run_naive_bayes(data, ['Outlook', 'Wind'], 'Play', {'Outlook': 'Sunny', 'Wind': 'Weak'}, use_laplace=True)
         self.assertIn('predicted_class', nb)
+
+
+from core.algorithms.association import _combinations
+
+
+class AprioriCombinationsTest(TestCase):
+    def test_combinations_matches_itertools(self):
+        # WHY: the mining algorithm must generate rule antecedents itself,
+        # with no stdlib helper, yet produce identical subsets — a drift here
+        # would silently change which association rules exist.
+        import itertools
+        items = ["A", "B", "C", "D"]
+        for r in range(1, len(items) + 1):
+            self.assertEqual(
+                list(_combinations(items, r)),
+                list(itertools.combinations(items, r)),
+            )
+
+    def test_no_itertools_import(self):
+        # WHY: "manual algorithm" is a course requirement, not a style note.
+        import core.algorithms.association as assoc_mod
+        with open(assoc_mod.__file__, encoding="utf-8") as fh:
+            source = fh.read()
+        self.assertNotIn("itertools", source)
+
+    def test_run_apriori_still_works(self):
+        tx = [
+            {"tid": "T1", "items": ["A", "B"]},
+            {"tid": "T2", "items": ["A", "B", "C"]},
+            {"tid": "T3", "items": ["A", "C"]},
+        ]
+        ap = AprioriEngine.run_apriori(tx, min_supp_pct=50.0, min_conf_pct=50.0)
+        self.assertEqual(ap["num_transactions"], 3)
+        self.assertTrue(len(ap["valid_rules"]) > 0)
