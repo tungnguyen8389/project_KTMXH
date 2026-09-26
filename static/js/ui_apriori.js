@@ -52,9 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 const res = await API.post('apriori', payload);
 
-                // 1. Render v(X) support — only items that appear in the filtered
-                //    rules; the per-transaction T columns are collapsed to a
-                //    Support count so large datasets stay readable ("filter cho T").
+                // 1. Render v(X) 0/1 matrix — rows: items in the filtered rules;
+                //    columns: only transactions matching the target filter, so the
+                //    matrix stays meaningful instead of 1470 columns ("filter cho T").
                 const bitvectorsBox = document.getElementById('ap-bitvectors-box');
                 const ruleItems = new Set();
                 res.valid_rules.forEach(r => {
@@ -63,17 +63,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const bvEntries = Object.entries(res.bitvectors)
                     .filter(([item]) => ruleItems.size === 0 || ruleItems.has(item));
-                let bvHtml = '<h4>1. Support v(X) các Mục (Item)</h4>';
-                if (ruleItems.size > 0) {
-                    bvHtml += `<p class="placeholder-text">Chỉ hiển thị ${bvEntries.length} mục xuất hiện trong luật đã lọc (ẩn ${res.num_transactions} cột giao dịch T).</p>`;
+
+                // Which transaction columns to keep, per the target filter.
+                let targetTokens = [];
+                if (targetMode === 'yes') targetTokens = ['Attrition=Yes'];
+                else if (targetMode === 'attrition')
+                    targetTokens = Object.keys(res.bitvectors).filter(k => k.startsWith('Attrition='));
+                const keepCols = [];
+                for (let i = 0; i < res.num_transactions; i++) {
+                    if (targetTokens.length === 0 ||
+                        targetTokens.some(t => res.bitvectors[t] && res.bitvectors[t][i] === 1)) {
+                        keepCols.push(i);
+                    }
                 }
-                bvHtml += '<table><thead><tr><th>Mục (Item)</th><th>Support Count</th><th>Support %</th></tr></thead><tbody>';
+                const COL_CAP = 50;
+                const shownCols = keepCols.slice(0, COL_CAP);
+
+                let bvHtml = '<h4>1. Ma Trận Vector Bít v(X)</h4>';
+                bvHtml += `<p class="placeholder-text">${bvEntries.length} mục trong luật, ${keepCols.length} giao dịch khớp mục tiêu${keepCols.length > COL_CAP ? ` (hiển thị ${COL_CAP} cột đầu)` : ''}.</p>`;
+                bvHtml += '<div class="table-responsive"><table><thead><tr><th>Mục (Item)</th>';
+                shownCols.forEach(i => bvHtml += `<th>T${i + 1}</th>`);
+                bvHtml += '<th>Support</th></tr></thead><tbody>';
                 bvEntries.forEach(([item, bv]) => {
                     const suppCnt = bv.reduce((a, b) => a + b, 0);
-                    const suppPct = ((suppCnt / res.num_transactions) * 100).toFixed(2);
-                    bvHtml += `<tr><td><strong>${item}</strong></td><td>${suppCnt}</td><td>${suppPct}%</td></tr>`;
+                    bvHtml += `<tr><td><strong>${item}</strong></td>`;
+                    shownCols.forEach(i => {
+                        const val = bv[i];
+                        bvHtml += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : 'color:#94a3b8'}">${val}</td>`;
+                    });
+                    bvHtml += `<td><strong>${suppCnt}</strong></td></tr>`;
                 });
-                bvHtml += '</tbody></table>';
+                bvHtml += '</tbody></table></div>';
                 bitvectorsBox.innerHTML = bvHtml;
 
                 // 2. Render Candidates C_k / Frequent F_k — only the table for the
@@ -85,18 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 let isHtml = '<h4 class="mt-3">2. Tập Ứng Viên C_k & Tập Phổ Biến F_k (k = ' + kLabel + ')</h4>';
 
                 shownSteps.forEach(step => {
+                    const freq = step.frequent_F_k || [];
                     isHtml += `<div class="step-card my-2">
                         <h5>Vòng k = ${step.k}:</h5>
-                        <p><strong>C_${step.k} (${step.candidates_C_k.length} tập ứng viên):</strong></p>
+                        <p><strong>F_${step.k} (${freq.length} tập phổ biến):</strong></p>
                         <div class="table-responsive mb-2">
-                            <table><thead><tr><th>Tập Mục (Itemset)</th><th>Support Count</th><th>Support %</th><th>Trạng Thái</th></tr></thead><tbody>`;
+                            <table><thead><tr><th>Tập Mục (Itemset)</th><th>Support Count</th><th>Support %</th></tr></thead><tbody>`;
 
-                    step.candidates_C_k.forEach(c => {
+                    freq.forEach(c => {
                         isHtml += `<tr>
                             <td>{ ${c.itemset.join(', ')} }</td>
                             <td>${c.support_count}</td>
                             <td>${c.support_pct}%</td>
-                            <td>${c.is_frequent ? '<span class="badge badge-green">Phổ biến (F_'+step.k+')</span>' : '<span class="badge" style="background:rgba(251,113,133,0.2); color:#fb7185">Loại (Pruned)</span>'}</td>
                         </tr>`;
                     });
                     isHtml += `</tbody></table></div></div>`;
