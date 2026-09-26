@@ -104,3 +104,51 @@ class AprioriCombinationsTest(TestCase):
         ap = AprioriEngine.run_apriori(tx, min_supp_pct=50.0, min_conf_pct=50.0)
         self.assertEqual(ap["num_transactions"], 3)
         self.assertTrue(len(ap["valid_rules"]) > 0)
+
+
+import pandas as pd
+from core.data_cleaning import clean_dataframe
+
+
+class DataCleaningTest(TestCase):
+    def _crafted_df(self):
+        # rows 1 & 2 identical (duplicate); "dead" near-constant; Age has enough
+        # normal values that 999 is a genuine IQR outlier, plus one missing.
+        return pd.DataFrame([
+            {"EmployeeNumber": 1, "Age": 30, "dead": "X", "Dept": "Sales"},
+            {"EmployeeNumber": 1, "Age": 30, "dead": "X", "Dept": "Sales"},
+            {"EmployeeNumber": 2, "Age": 25, "dead": "X", "Dept": "R&D"},
+            {"EmployeeNumber": 3, "Age": 35, "dead": "X", "Dept": "Sales"},
+            {"EmployeeNumber": 4, "Age": 28, "dead": "X", "Dept": "R&D"},
+            {"EmployeeNumber": 5, "Age": 40, "dead": "X", "Dept": "Sales"},
+            {"EmployeeNumber": 6, "Age": 999, "dead": "X", "Dept": "R&D"},
+            {"EmployeeNumber": 7, "Age": None, "dead": "X", "Dept": "Sales"},
+        ])
+
+    def test_report_keeps_legacy_keys(self):
+        # WHY: the import view and seed command read these exact keys; renaming
+        # any of them breaks the CSV import UI silently.
+        _, report = clean_dataframe(self._crafted_df())
+        for key in ("dropped_columns", "rows_before", "rows_after",
+                    "columns_after", "missing_filled"):
+            self.assertIn(key, report)
+
+    def test_drops_id_and_near_constant_columns(self):
+        # WHY: EmployeeNumber is an ID and "dead" is >99% one value; both would
+        # pollute Apriori with useless items.
+        df, report = clean_dataframe(self._crafted_df())
+        self.assertNotIn("EmployeeNumber", df.columns)
+        self.assertNotIn("dead", df.columns)
+
+    def test_dedup_and_outlier_and_fill_reported(self):
+        # WHY: each stage must be auditable in the UI report, so counts must be
+        # real, not zero placeholders.
+        df, report = clean_dataframe(self._crafted_df())
+        steps = {s["step"]: s for s in report["steps"]}
+        self.assertIn("dedup", steps)
+        self.assertEqual(steps["dedup"]["rows_removed"], 1)
+        self.assertIn("outlier_cap", steps)
+        self.assertGreaterEqual(steps["outlier_cap"]["values_capped"], 1)
+        self.assertEqual(report["missing_filled"], 1)
+        # outlier 999 must have been capped below itself
+        self.assertLess(df["Age"].max(), 999)
