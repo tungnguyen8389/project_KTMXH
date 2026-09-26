@@ -52,17 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 const res = await API.post('apriori', payload);
 
-                // 1. Render v(X) 0/1 matrix — rows: items in the filtered rules;
-                //    columns: only transactions matching the target filter, so the
-                //    matrix stays meaningful instead of 1470 columns ("filter cho T").
+                // 1. Render v(X) 0/1 matrix — keep ALL item rows; keep only the
+                //    transaction columns matching the target filter, so the matrix
+                //    stays meaningful instead of 1470 columns ("filter cho T").
                 const bitvectorsBox = document.getElementById('ap-bitvectors-box');
-                const ruleItems = new Set();
-                res.valid_rules.forEach(r => {
-                    (r.lhs || []).forEach(i => ruleItems.add(i));
-                    (r.rhs || []).forEach(i => ruleItems.add(i));
-                });
-                const bvEntries = Object.entries(res.bitvectors)
-                    .filter(([item]) => ruleItems.size === 0 || ruleItems.has(item));
+                const bvEntries = Object.entries(res.bitvectors);
 
                 // Which transaction columns to keep, per the target filter.
                 let targetTokens = [];
@@ -80,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const shownCols = keepCols.slice(0, COL_CAP);
 
                 let bvHtml = '<h4>1. Ma Trận Vector Bít v(X)</h4>';
-                bvHtml += `<p class="placeholder-text">${bvEntries.length} mục trong luật, ${keepCols.length} giao dịch khớp mục tiêu${keepCols.length > COL_CAP ? ` (hiển thị ${COL_CAP} cột đầu)` : ''}.</p>`;
+                bvHtml += `<p class="placeholder-text">${bvEntries.length} mục, ${keepCols.length} giao dịch khớp mục tiêu${keepCols.length > COL_CAP ? ` (hiển thị ${COL_CAP} cột đầu)` : ''}.</p>`;
                 bvHtml += '<div class="table-responsive"><table><thead><tr><th>Mục (Item)</th>';
                 shownCols.forEach(i => bvHtml += `<th>T${i + 1}</th>`);
                 bvHtml += '<th>Support</th></tr></thead><tbody>';
