@@ -16,8 +16,10 @@ mining algorithm must be implemented manually.
 ## Decisions (locked)
 
 - **Encoding scope**: Attrition-focused subset of columns, not all 31.
-- **Numeric binning**: quantile (equal-frequency) buckets, so no bucket dominates
-  support.
+- **Numeric binning**: semantic labels. Known HR columns use fixed domain
+  thresholds with readable labels (e.g. `Age=Young|Middle|Senior`); other numerics
+  fall back to quantile bins labeled `Low|Medium|High`. Readable rules over
+  balanced support.
 - **Cleaning depth**: standard pipeline (dedup, dtype coercion, categorical
   standardization, IQR outlier capping, near-constant drop) on top of the current
   drop-cols + trim + fill.
@@ -68,10 +70,18 @@ encode_transactions(df, columns=None, target="Attrition", n_bins=3)
   present so a non-HR dataset degrades gracefully:
   `OverTime, JobSatisfaction, JobRole, MaritalStatus, WorkLifeBalance,
   Department, Age, MonthlyIncome, YearsAtCompany, Attrition`.
-- **Numeric column** → quantile buckets via `pandas.qcut(..., duplicates="drop")`;
-  token format `Col=[lo–hi)`. A numeric column whose `nunique <= n_bins`
-  (e.g. ordinals like `WorkLifeBalance`) is treated as categorical instead of
-  binned.
+- **Numeric column** → semantic bins, token format `Col=Label`:
+  - **Known HR columns** use fixed domain thresholds with readable labels:
+    - `Age`: `Young` (<30), `Middle` (30–50), `Senior` (>50)
+    - `MonthlyIncome`: `pandas.qcut` into `Low|Medium|High`
+    - `DistanceFromHome`: `Near` (≤5), `Medium` (6–15), `Far` (>15)
+    - `TotalWorkingYears`: `Junior` (<5), `Mid` (5–15), `Senior` (>15)
+    - `YearsAtCompany`: `New` (<3), `Established` (3–10), `Veteran` (>10)
+  - **Other numerics** → `pandas.qcut(..., duplicates="drop")` labeled
+    `Low|Medium|High`.
+  - A numeric column whose `nunique <= n_bins` (e.g. ordinals like
+    `WorkLifeBalance`) is treated as categorical instead of binned.
+  - Bin definitions live in one small config dict so labels stay auditable.
 - **Categorical column** → token `Col=Value`.
 - Each row → `{"tid": "T{i+1}", "items": [tokens…]}`.
 - **Guard**: if fewer than 2 usable columns remain → raise a clear error.
@@ -133,9 +143,10 @@ Apriori tab: click "Dùng dữ liệu đã nhập"                │
 
 ## Testing (tests encode intent, not just behavior)
 
-- **Encoder**: quantile buckets carry approximately equal support — *why*: a
-  dominant bucket would swamp Apriori's rules; few-unique numeric column is
-  treated categorical, not binned; token string format is exact.
+- **Encoder**: known HR columns map to their exact semantic labels (e.g. age 25 →
+  `Age=Young`, 40 → `Age=Middle`) — *why*: rules must read in human terms, not
+  raw edges; a few-unique numeric column is treated categorical, not binned; token
+  string format is exact; fallback qcut column produces `Low|Medium|High`.
 - **Cleaning**: a crafted DataFrame with duplicate rows + a near-constant column
   + an outlier + missing values → each stage's report count is correct.
 - **Endpoint**: with a seeded dataset, `GET` returns a transaction count equal to
