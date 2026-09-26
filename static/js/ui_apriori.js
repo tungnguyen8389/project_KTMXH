@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (freqSets.length === 0) {
                     isHtml += '<p class="placeholder-text">Không có tập phổ biến ở mức k này.</p>';
                 } else {
-                    isHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
+                    isHtml += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">';
                     freqSets.forEach(c => {
                         const lines = c.itemset.map(it => `<li>${it}</li>`).join('');
                         isHtml += `<div class="rule-card">
