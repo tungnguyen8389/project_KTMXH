@@ -2,6 +2,33 @@
  * [TV4] UI Script for Apriori Itemsets C_k, F_k, Bitvectors, and Rule Cards
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const btnEncodeHr = document.getElementById('btn-encode-hr');
+    if (btnEncodeHr) {
+        btnEncodeHr.addEventListener('click', async () => {
+            try {
+                const res = await API.get('encode-transactions');
+                document.getElementById('ap-json-input').value =
+                    JSON.stringify(res.transactions, null, 2);
+                // Prefill sensible defaults for the real HR dataset.
+                document.getElementById('ap-minsupp').value = 10;
+                document.getElementById('ap-minconf').value = 50;
+                const r = res.report;
+                const binLines = Object.entries(r.bins || {})
+                    .map(([col, labels]) => `<li><strong>${col}</strong>: ${labels.join(', ')}</li>`)
+                    .join('');
+                document.getElementById('ap-encode-report').innerHTML = `
+                    <div class="step-card">
+                        <p>Đã mã hóa <strong>${r.num_transactions}</strong> giao dịch,
+                           <strong>${r.vocab_size}</strong> mục (items) từ
+                           ${r.columns_used.length} cột.</p>
+                        <ul>${binLines}</ul>
+                    </div>`;
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
     const btnRunApriori = document.getElementById('btn-run-apriori');
     if (btnRunApriori) {
         btnRunApriori.addEventListener('click', async () => {

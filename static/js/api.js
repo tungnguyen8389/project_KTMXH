@@ -23,6 +23,23 @@ const API = {
         }
     },
 
+    async get(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}/`, {
+                method: 'GET',
+                headers: { 'X-CSRFToken': this.getCsrfToken() }
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Lỗi khi gọi API backend!');
+            }
+            return result;
+        } catch (err) {
+            alert(`Lỗi API (${endpoint}): ${err.message}`);
+            throw err;
+        }
+    },
+
     getCsrfToken() {
         const name = 'csrftoken';
         let cookieValue = null;
