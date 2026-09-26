@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 bvHtml += `<p class="placeholder-text">${keepRows.length} giao dịch khớp mục tiêu × ${items.length} mục${keepRows.length > ROW_CAP ? ` (hiển thị ${ROW_CAP} hàng đầu)` : ''}.</p>`;
                 const thSticky = 'position:sticky;top:0;background:#f1f5f9;z-index:2';
                 bvHtml += '<div style="max-height:480px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">';
-                bvHtml += '<table style="margin:0"><thead><tr>';
+                bvHtml += '<table style="margin:0;width:max-content;border-collapse:separate;border-spacing:0;overflow:visible;border:0"><thead><tr>';
                 bvHtml += `<th style="${thSticky};left:0;z-index:3">Giao dịch</th>`;
                 items.forEach(it => bvHtml += `<th style="${thSticky}">${it}</th>`);
                 bvHtml += '</tr></thead><tbody>';
