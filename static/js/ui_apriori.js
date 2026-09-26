@@ -52,70 +52,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 const res = await API.post('apriori', payload);
 
-                // 1. Render v(X) 0/1 matrix — keep ALL item rows; keep only the
-                //    transaction columns matching the target filter, so the matrix
-                //    stays meaningful instead of 1470 columns ("filter cho T").
+                // 1. Binary table — one ROW per (target-matched) transaction, one
+                //    column per item, so it scrolls vertically instead of showing
+                //    hundreds of T columns ("theo hàng").
                 const bitvectorsBox = document.getElementById('ap-bitvectors-box');
-                const bvEntries = Object.entries(res.bitvectors);
-
-                // Which transaction columns to keep, per the target filter.
+                const items = Object.keys(res.bitvectors);
                 let targetTokens = [];
                 if (targetMode === 'yes') targetTokens = ['Attrition=Yes'];
                 else if (targetMode === 'attrition')
-                    targetTokens = Object.keys(res.bitvectors).filter(k => k.startsWith('Attrition='));
-                const keepCols = [];
+                    targetTokens = items.filter(k => k.startsWith('Attrition='));
+                const keepRows = [];
                 for (let i = 0; i < res.num_transactions; i++) {
                     if (targetTokens.length === 0 ||
                         targetTokens.some(t => res.bitvectors[t] && res.bitvectors[t][i] === 1)) {
-                        keepCols.push(i);
+                        keepRows.push(i);
                     }
                 }
-                const COL_CAP = 50;
-                const shownCols = keepCols.slice(0, COL_CAP);
+                const ROW_CAP = 50;
+                const shownRows = keepRows.slice(0, ROW_CAP);
 
-                let bvHtml = '<h4>1. Ma Trận Vector Bít v(X)</h4>';
-                bvHtml += `<p class="placeholder-text">${bvEntries.length} mục, ${keepCols.length} giao dịch khớp mục tiêu${keepCols.length > COL_CAP ? ` (hiển thị ${COL_CAP} cột đầu)` : ''}.</p>`;
-                bvHtml += '<div class="table-responsive"><table><thead><tr><th>Mục (Item)</th>';
-                shownCols.forEach(i => bvHtml += `<th>T${i + 1}</th>`);
-                bvHtml += '<th>Support</th></tr></thead><tbody>';
-                bvEntries.forEach(([item, bv]) => {
-                    const suppCnt = bv.reduce((a, b) => a + b, 0);
-                    bvHtml += `<tr><td><strong>${item}</strong></td>`;
-                    shownCols.forEach(i => {
-                        const val = bv[i];
+                let bvHtml = '<h4>1. Bảng Nhị Phân v(X)</h4>';
+                bvHtml += `<p class="placeholder-text">${keepRows.length} giao dịch khớp mục tiêu × ${items.length} mục${keepRows.length > ROW_CAP ? ` (hiển thị ${ROW_CAP} hàng đầu)` : ''}.</p>`;
+                bvHtml += '<table><thead><tr><th>Giao dịch</th>';
+                items.forEach(it => bvHtml += `<th>${it}</th>`);
+                bvHtml += '</tr></thead><tbody>';
+                shownRows.forEach(i => {
+                    bvHtml += `<tr><td><strong>T${i + 1}</strong></td>`;
+                    items.forEach(it => {
+                        const val = res.bitvectors[it][i];
                         bvHtml += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : 'color:#94a3b8'}">${val}</td>`;
                     });
-                    bvHtml += `<td><strong>${suppCnt}</strong></td></tr>`;
+                    bvHtml += '</tr>';
                 });
-                bvHtml += '</tbody></table></div>';
+                bvHtml += '</tbody></table>';
                 bitvectorsBox.innerHTML = bvHtml;
 
-                // 2. Render Candidates C_k / Frequent F_k — only the table for the
-                //    entered k (Max Length); fall back to the largest k reached.
+                // 3. Frequent-itemset cards (F_k) for the entered k — 3 per row,
+                //    each card lists the itemset values line by line.
                 const itemsetsBox = document.getElementById('ap-itemsets-box');
                 let shownSteps = res.itemset_steps.filter(s => s.k === maxLen);
                 if (shownSteps.length === 0) shownSteps = res.itemset_steps.slice(-1);
                 const kLabel = shownSteps.length ? shownSteps[shownSteps.length - 1].k : maxLen;
-                let isHtml = '<h4 class="mt-3">2. Tập Ứng Viên C_k & Tập Phổ Biến F_k (k = ' + kLabel + ')</h4>';
+                const freqSets = shownSteps.reduce((acc, s) => acc.concat(s.frequent_F_k || []), []);
 
-                shownSteps.forEach(step => {
-                    const freq = step.frequent_F_k || [];
-                    isHtml += `<div class="step-card my-2">
-                        <h5>Vòng k = ${step.k}:</h5>
-                        <p><strong>F_${step.k} (${freq.length} tập phổ biến):</strong></p>
-                        <div class="table-responsive mb-2">
-                            <table><thead><tr><th>Tập Mục (Itemset)</th><th>Support Count</th><th>Support %</th></tr></thead><tbody>`;
-
-                    freq.forEach(c => {
-                        isHtml += `<tr>
-                            <td>{ ${c.itemset.join(', ')} }</td>
-                            <td>${c.support_count}</td>
-                            <td>${c.support_pct}%</td>
-                        </tr>`;
+                let isHtml = `<h4 class="mt-2">Tập Phổ Biến F_${kLabel} (${freqSets.length})</h4>`;
+                if (freqSets.length === 0) {
+                    isHtml += '<p class="placeholder-text">Không có tập phổ biến ở mức k này.</p>';
+                } else {
+                    isHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
+                    freqSets.forEach(c => {
+                        const lines = c.itemset.map(it => `<li>${it}</li>`).join('');
+                        isHtml += `<div class="rule-card">
+                            <ul style="margin:0 0 8px;padding-left:18px">${lines}</ul>
+                            <div class="rule-meta">
+                                <span class="badge badge-blue">Support: ${c.support_count}</span>
+                                <span class="badge badge-green">${c.support_pct}%</span>
+                            </div>
+                        </div>`;
                     });
-                    isHtml += `</tbody></table></div></div>`;
-                });
-
+                    isHtml += '</div>';
+                }
                 itemsetsBox.innerHTML = isHtml;
 
                 // 3. Render Rule Cards

@@ -27,14 +27,6 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Lọc mục tiêu:</label>
-                    <select id="ap-target" class="form-control">
-                        <option value="yes" selected>Chỉ luật dẫn đến Nghỉ việc (Attrition=Yes)</option>
-                        <option value="attrition">Chỉ luật liên quan Attrition (Yes/No)</option>
-                        <option value="all">Tất cả luật</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <button id="btn-encode-hr" type="button" class="btn btn-secondary btn-block">
                         Dùng dữ liệu đã nhập (HR)
                     </button>
@@ -59,12 +51,24 @@
                 <h3>Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
             </div>
             <div class="card-body">
-                <div id="ap-bitvectors-box" class="table-responsive mb-3"></div>
-                <div id="ap-itemsets-box">
-                    <p class="placeholder-text">Các tập ứng viên $C_k$ và phổ biến $F_k$ sẽ được tạo tại đây.</p>
+                <!-- 0. Filter on top -->
+                <div class="form-group">
+                    <label>Lọc mục tiêu:</label>
+                    <select id="ap-target" class="form-control">
+                        <option value="yes" selected>Chỉ luật dẫn đến Nghỉ việc (Attrition=Yes)</option>
+                        <option value="attrition">Chỉ luật liên quan Attrition (Yes/No)</option>
+                        <option value="all">Tất cả luật</option>
+                    </select>
                 </div>
-                <h4 class="mt-4">Các Luật Kết Hợp Thỏa Mẫn MinConf</h4>
-                <div id="ap-rules-cards" class="rules-grid"></div>
+                <!-- 1. Binary table (row per transaction) -->
+                <div id="ap-bitvectors-box" class="table-responsive mb-4"></div>
+                <!-- 2. Rule cards satisfying min confidence -->
+                <h4 class="mt-2">Các Luật Kết Hợp Thỏa Mãn MinConf</h4>
+                <div id="ap-rules-cards" class="rules-grid mb-4"></div>
+                <!-- 3. Frequent-itemset cards -->
+                <div id="ap-itemsets-box">
+                    <p class="placeholder-text">Các tập phổ biến $F_k$ sẽ được tạo tại đây.</p>
+                </div>
             </div>
         </div>
     </div>
