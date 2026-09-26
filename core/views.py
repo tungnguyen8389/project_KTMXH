@@ -14,6 +14,7 @@ from .algorithms.reduct import ReductEngine
 from .algorithms.kmeans import KMeansEngine
 from .algorithms.association import AprioriEngine
 from .algorithms.classification import ClassificationEngine
+from .transaction_encoder import encode_transactions
 
 
 class IndexView(TemplateView):
@@ -181,6 +182,22 @@ class AprioriAPIView(APIView):
 
             result = AprioriEngine.run_apriori(transactions, min_supp_pct, min_conf_pct)
             return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EncodeTransactionsAPIView(APIView):
+    """[TV3] Encode the stored HR dataset into Apriori transactions (GET)."""
+    def get(self, request):
+        dataset = Dataset.objects.first()
+        if dataset is None:
+            return Response({'error': 'Chưa có dữ liệu, hãy nhập CSV trước.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            df = pd.DataFrame(dataset.data_json)
+            transactions, report = encode_transactions(df)
+            return Response({'transactions': transactions, 'report': report},
+                            status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

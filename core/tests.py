@@ -226,3 +226,25 @@ class TransactionEncoderTest(TestCase):
                            for v in vals])
         tx, report = encode_transactions(df)  # must not raise
         self.assertEqual(len(tx), 9)
+
+
+from core.models import Dataset
+
+
+class EncodeEndpointTest(TestCase):
+    def test_no_dataset_returns_400(self):
+        # WHY: user hits the button before importing; must be a clean 400, not 500.
+        resp = self.client.get("/api/encode-transactions/")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
+    def test_returns_transactions_matching_row_count(self):
+        rows = [{"Age": 25, "OverTime": "Yes", "Attrition": "No"},
+                {"Age": 55, "OverTime": "No", "Attrition": "Yes"},
+                {"Age": 40, "OverTime": "Yes", "Attrition": "Yes"}]
+        Dataset.objects.create(name="HR", category="APRIORI", data_json=rows)
+        resp = self.client.get("/api/encode-transactions/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body["transactions"]), 3)
+        self.assertEqual(body["report"]["num_transactions"], 3)
