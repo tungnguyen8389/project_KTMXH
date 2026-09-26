@@ -152,3 +152,77 @@ class DataCleaningTest(TestCase):
         self.assertEqual(report["missing_filled"], 1)
         # outlier 999 must have been capped below itself
         self.assertLess(df["Age"].max(), 999)
+
+
+from core.transaction_encoder import encode_transactions, CURATED_COLUMNS
+
+
+class TransactionEncoderTest(TestCase):
+    def _hr_df(self):
+        rows = []
+        for i in range(9):
+            rows.append({
+                "Age": [25, 29, 30, 40, 50, 51, 60, 35, 45][i],
+                "MonthlyIncome": str(1000 * (i + 1)),   # stored as string
+                "OverTime": "Yes" if i % 2 else "No",
+                "Attrition": "Yes" if i % 3 == 0 else "No",
+            })
+        return pd.DataFrame(rows)
+
+    def test_age_boundaries_map_to_semantic_labels(self):
+        # WHY: readable rules require exact bins; age 30 and 50 must be Middle,
+        # off-by-one silently mislabels employees.
+        tx, _ = encode_transactions(self._hr_df())
+        items_by_tid = {t["tid"]: set(t["items"]) for t in tx}
+        self.assertIn("Age=Young", items_by_tid["T1"])    # 25
+        self.assertIn("Age=Middle", items_by_tid["T3"])   # 30 boundary
+        self.assertIn("Age=Middle", items_by_tid["T5"])   # 50 boundary
+        self.assertIn("Age=Senior", items_by_tid["T6"])   # 51
+
+    def test_string_numeric_column_is_binned_not_one_bucket(self):
+        # WHY: JSONField can store numbers as strings; without coercion every
+        # MonthlyIncome lands in one bucket and yields no useful rules.
+        tx, report = encode_transactions(self._hr_df())
+        income_tokens = {it for t in tx for it in t["items"]
+                         if it.startswith("MonthlyIncome=")}
+        self.assertEqual(income_tokens,
+                         {"MonthlyIncome=Low", "MonthlyIncome=Medium",
+                          "MonthlyIncome=High"})
+
+    def test_transaction_count_and_categorical_token(self):
+        tx, report = encode_transactions(self._hr_df())
+        self.assertEqual(report["num_transactions"], 9)
+        self.assertEqual(len(tx), 9)
+        self.assertTrue(any("OverTime=Yes" in t["items"] for t in tx))
+
+    def test_missing_curated_columns_degrade_gracefully(self):
+        # WHY: a non-HR dataset must not crash; usable columns are intersected.
+        df = pd.DataFrame([{"OverTime": "Yes", "Attrition": "No"},
+                           {"OverTime": "No", "Attrition": "Yes"}])
+        tx, report = encode_transactions(df)
+        self.assertEqual(set(report["columns_used"]), {"OverTime", "Attrition"})
+
+    def test_too_few_usable_columns_raises(self):
+        # WHY: with <2 columns there are no associations to mine; fail loudly.
+        df = pd.DataFrame([{"OverTime": "Yes"}, {"OverTime": "No"}])
+        with self.assertRaises(ValueError):
+            encode_transactions(df)
+
+    def test_low_cardinality_numeric_stays_categorical(self):
+        # WHY: ordinals like JobSatisfaction (1..4) must read as JobSatisfaction=3,
+        # not be blurred into Low/Medium/High quantile bins.
+        df = pd.DataFrame([{"JobSatisfaction": v, "OverTime": "Yes", "Attrition": "No"}
+                           for v in [1, 2, 3, 4, 1, 2, 3, 4]])
+        tx, _ = encode_transactions(df)
+        toks = {it for t in tx for it in t["items"] if it.startswith("JobSatisfaction=")}
+        self.assertEqual(toks, {"JobSatisfaction=1", "JobSatisfaction=2",
+                                "JobSatisfaction=3", "JobSatisfaction=4"})
+
+    def test_skewed_numeric_does_not_crash(self):
+        # WHY: a clustered high-cardinality numeric can yield duplicate quantile
+        # edges; encoding must degrade gracefully, never raise.
+        vals = [1000, 1000, 1000, 1000, 1000, 1000, 1000, 2000, 500000]
+        df = pd.DataFrame([{"MonthlyIncome": v, "OverTime": "Yes", "Attrition": "No"}
+                           for v in vals])
+        tx, report = encode_transactions(df)  # must not raise
+        self.assertEqual(len(tx), 9)
