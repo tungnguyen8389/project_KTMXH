@@ -9,9 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await API.get('encode-transactions');
                 document.getElementById('ap-json-input').value =
                     JSON.stringify(res.transactions, null, 2);
-                // Prefill sensible defaults for the real HR dataset.
-                document.getElementById('ap-minsupp').value = 10;
-                document.getElementById('ap-minconf').value = 50;
+                // Prefill sensible defaults for the real HR dataset. Attrition=Yes
+                // is a minority class, so confidence must stay modest to surface
+                // meaningful leave-risk rules; lift>1.2 keeps only positive links.
+                document.getElementById('ap-minsupp').value = 5;
+                document.getElementById('ap-minconf').value = 30;
+                document.getElementById('ap-minlift').value = 1.2;
+                document.getElementById('ap-maxlen').value = 3;
+                document.getElementById('ap-target').value = 'yes';
                 const r = res.report;
                 const binLines = Object.entries(r.bins || {})
                     .map(([col, labels]) => `<li><strong>${col}</strong>: ${labels.join(', ')}</li>`)
@@ -34,11 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
         btnRunApriori.addEventListener('click', async () => {
             const minSupp = parseFloat(document.getElementById('ap-minsupp').value);
             const minConf = parseFloat(document.getElementById('ap-minconf').value);
+            const minLift = parseFloat(document.getElementById('ap-minlift').value);
+            const maxLen = parseInt(document.getElementById('ap-maxlen').value, 10);
+            const targetMode = document.getElementById('ap-target').value;
             const jsonRaw = document.getElementById('ap-json-input').value;
 
             try {
                 const transactions = JSON.parse(jsonRaw);
-                const payload = { transactions, min_supp: minSupp, min_conf: minConf };
+                const payload = {
+                    transactions, min_supp: minSupp, min_conf: minConf,
+                    min_lift: minLift, max_len: maxLen, target_mode: targetMode
+                };
                 const res = await API.post('apriori', payload);
 
                 // 1. Render Transaction Bitvectors v(X)

@@ -16,6 +16,24 @@
                         <input type="number" id="ap-minconf" class="form-control" value="70.0" step="5">
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Min Lift:</label>
+                        <input type="number" id="ap-minlift" class="form-control" value="1.2" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Length (k):</label>
+                        <input type="number" id="ap-maxlen" class="form-control" value="3" step="1" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Lọc mục tiêu:</label>
+                    <select id="ap-target" class="form-control">
+                        <option value="yes" selected>Chỉ luật dẫn đến Nghỉ việc (Attrition=Yes)</option>
+                        <option value="attrition">Chỉ luật liên quan Attrition (Yes/No)</option>
+                        <option value="all">Tất cả luật</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <button id="btn-encode-hr" type="button" class="btn btn-secondary btn-block">
                         Dùng dữ liệu đã nhập (HR)

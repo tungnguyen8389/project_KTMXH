@@ -31,11 +31,17 @@ class AprioriEngine:
     """
 
     @staticmethod
-    def run_apriori(transactions, min_supp_pct=50.0, min_conf_pct=70.0):
+    def run_apriori(transactions, min_supp_pct=50.0, min_conf_pct=70.0,
+                    max_len=None, min_lift=0.0, target_mode='all'):
         """
         transactions: list of lists or dicts [{'tid': 'T1', 'items': ['A', 'B', 'E']}, ...]
         min_supp_pct: float (e.g. 50.0%)
         min_conf_pct: float (e.g. 70.0%)
+        max_len: int or None — cap itemset size k (rule-length control); None = no cap.
+        min_lift: float — keep only rules with lift >= this (noise control).
+        target_mode: 'all' | 'attrition' | 'yes' — filter rules by consequent:
+            'all' keeps every rule; 'attrition' keeps rules whose consequent
+            contains an Attrition= token; 'yes' keeps only consequent == [Attrition=Yes].
         """
         # Parse transaction database
         tid_list = []
@@ -91,7 +97,7 @@ class AprioriEngine:
         current_f = f1
         k = 2
 
-        while current_f:
+        while current_f and (max_len is None or k <= max_len):
             prev_fsets = list(current_f.keys())
             # Candidate generation C_k by joining F_{k-1}
             candidate_ck = set()
@@ -152,7 +158,7 @@ class AprioriEngine:
                             conf = supp_AB / supp_A
                             conf_pct = round(conf * 100.0, 2)
                             lift = round(supp_AB / (supp_A * (supp_B / n_tx)), 2) if supp_B > 0 else 0.0
-                            is_valid_rule = conf >= min_conf
+                            is_valid_rule = conf >= min_conf and lift >= min_lift
 
                             generated_rules.append({
                                 "rule_str": f"{', '.join(sorted(list(subset_A)))} ➔ {', '.join(sorted(list(subset_B)))}",
@@ -167,6 +173,19 @@ class AprioriEngine:
                             })
 
         valid_rules = [r for r in generated_rules if r['is_valid']]
+
+        # Target-oriented filter: keep only rules whose consequent matches the goal.
+        def _match_target(rule):
+            if target_mode == 'all':
+                return True
+            rhs = rule['rhs']
+            if target_mode == 'attrition':
+                return any(i.startswith('Attrition=') for i in rhs)
+            if target_mode == 'yes':
+                return rhs == ['Attrition=Yes']
+            return True
+
+        valid_rules = [r for r in valid_rules if _match_target(r)]
 
         return {
             "num_transactions": n_tx,

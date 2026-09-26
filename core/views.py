@@ -176,11 +176,17 @@ class AprioriAPIView(APIView):
             transactions = payload.get('transactions', [])
             min_supp_pct = float(payload.get('min_supp', 50.0))
             min_conf_pct = float(payload.get('min_conf', 70.0))
+            min_lift = float(payload.get('min_lift', 0.0))
+            max_len_raw = payload.get('max_len', None)
+            max_len = int(max_len_raw) if max_len_raw not in (None, '', 0, '0') else None
+            target_mode = payload.get('target_mode', 'all')
 
             if not transactions:
                 return Response({'error': 'Danh sách giao dịch transactions không được rỗng!'}, status=status.HTTP_400_BAD_REQUEST)
 
-            result = AprioriEngine.run_apriori(transactions, min_supp_pct, min_conf_pct)
+            result = AprioriEngine.run_apriori(
+                transactions, min_supp_pct, min_conf_pct,
+                max_len=max_len, min_lift=min_lift, target_mode=target_mode)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

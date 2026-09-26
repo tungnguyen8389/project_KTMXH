@@ -258,3 +258,53 @@ class EncodeEndpointTest(TestCase):
         body = resp.json()
         self.assertEqual(len(body["transactions"]), 3)
         self.assertEqual(body["report"]["num_transactions"], 3)
+
+
+class RuleFilterTest(TestCase):
+    def _attr_tx(self):
+        return [
+            {"tid": "T1", "items": ["OverTime=Yes", "Attrition=Yes"]},
+            {"tid": "T2", "items": ["OverTime=Yes", "Attrition=Yes"]},
+            {"tid": "T3", "items": ["OverTime=No", "Attrition=No"]},
+            {"tid": "T4", "items": ["OverTime=No", "Attrition=No"]},
+        ]
+
+    def test_max_len_caps_itemset_size(self):
+        # WHY: HR cannot act on 5-condition rules; mining must stop at k=max_len.
+        tx = [{"tid": f"T{i}", "items": ["A", "B", "C", "D"]} for i in range(4)]
+        res = AprioriEngine.run_apriori(tx, 50, 50, max_len=2)
+        self.assertEqual(max(s["k"] for s in res["itemset_steps"]), 2)
+
+    def test_min_lift_filters_low_lift_rules(self):
+        # WHY: lift<=1 means no positive correlation; those rules are noise.
+        tx = [{"tid": f"T{i}", "items": ["A", "B", "C"]} for i in range(4)]
+        hi = AprioriEngine.run_apriori(tx, 50, 50, min_lift=1.5)
+        lo = AprioriEngine.run_apriori(tx, 50, 50, min_lift=0.0)
+        self.assertEqual(len(hi["valid_rules"]), 0)
+        self.assertGreater(len(lo["valid_rules"]), 0)
+
+    def test_target_yes_only_keeps_attrition_yes_consequent(self):
+        # WHY: the business question is who leaves; consequent must be exactly
+        # Attrition=Yes, not the reverse direction or Attrition=No.
+        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="yes")
+        self.assertGreaterEqual(len(res["valid_rules"]), 1)
+        for r in res["valid_rules"]:
+            self.assertEqual(r["rhs"], ["Attrition=Yes"])
+
+    def test_target_attrition_keeps_yes_and_no(self):
+        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="attrition")
+        self.assertTrue(all(any(i.startswith("Attrition=") for i in r["rhs"])
+                            for r in res["valid_rules"]))
+        rhs_vals = {i for r in res["valid_rules"] for i in r["rhs"]}
+        self.assertIn("Attrition=No", rhs_vals)
+
+    def test_target_all_is_superset_of_attrition(self):
+        # WHY: 'all' must not silently drop the attrition-target rules.
+        all_res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="all")
+        attr_res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="attrition")
+        self.assertGreater(len(all_res["valid_rules"]), len(attr_res["valid_rules"]))
+
+    def test_defaults_preserve_unfiltered_behavior(self):
+        # WHY: existing callers pass no new args; defaults must not filter.
+        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50)
+        self.assertGreater(len(res["valid_rules"]), 0)
