@@ -227,6 +227,16 @@ class TransactionEncoderTest(TestCase):
         tx, report = encode_transactions(df)  # must not raise
         self.assertEqual(len(tx), 9)
 
+    def test_low_cardinality_fractional_numeric_does_not_crash(self):
+        # WHY: a non-HR ordinal-like float column (<=6 distinct, not configured)
+        # must degrade gracefully — the Int64 cast raises on fractions and would
+        # otherwise take down the whole encode (violates graceful degradation).
+        df = pd.DataFrame([{"Rating": v, "Grp": "A" if i % 2 else "B"}
+                           for i, v in enumerate([1.5, 2.5, 3.5, 1.5, 2.5, 3.5])])
+        tx, report = encode_transactions(df, columns=["Rating", "Grp"])  # must not raise
+        toks = {it for t in tx for it in t["items"] if it.startswith("Rating=")}
+        self.assertTrue(toks)
+
 
 from core.models import Dataset
 

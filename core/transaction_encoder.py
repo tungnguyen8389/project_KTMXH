@@ -90,7 +90,11 @@ def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
             else:
                 tokens_per_col[col], bins_report[col] = toks, labels
         elif numeric.nunique(dropna=True) <= ORDINAL_MAX:   # ordinal -> categorical
-            tokens_per_col[col] = _cat_tokens(numeric.astype("Int64"), col)
+            try:
+                tokens_per_col[col] = _cat_tokens(numeric.astype("Int64"), col)
+            except (TypeError, ValueError):
+                # fractional ordinal-like column -> keep original values as-is
+                tokens_per_col[col] = _cat_tokens(series, col)
         else:                                      # generic numeric -> quantile
             toks, labels = _qcut_tokens(numeric, col, n_bins)
             if toks is None:
