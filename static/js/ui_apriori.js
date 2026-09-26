@@ -52,28 +52,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 const res = await API.post('apriori', payload);
 
-                // 1. Render Transaction Bitvectors v(X)
+                // 1. Render v(X) support — only items that appear in the filtered
+                //    rules; the per-transaction T columns are collapsed to a
+                //    Support count so large datasets stay readable ("filter cho T").
                 const bitvectorsBox = document.getElementById('ap-bitvectors-box');
-                let bvHtml = '<h4>1. Ma Trận Vector Bít v(X) Theo Thuộc Tính</h4><table><thead><tr><th>Mục (Item)</th>';
-                for (let i = 1; i <= res.num_transactions; i++) bvHtml += `<th>T${i}</th>`;
-                bvHtml += '<th>Support Count</th></tr></thead><tbody>';
-
-                Object.entries(res.bitvectors).forEach(([item, bv]) => {
+                const ruleItems = new Set();
+                res.valid_rules.forEach(r => {
+                    (r.lhs || []).forEach(i => ruleItems.add(i));
+                    (r.rhs || []).forEach(i => ruleItems.add(i));
+                });
+                const bvEntries = Object.entries(res.bitvectors)
+                    .filter(([item]) => ruleItems.size === 0 || ruleItems.has(item));
+                let bvHtml = '<h4>1. Support v(X) các Mục (Item)</h4>';
+                if (ruleItems.size > 0) {
+                    bvHtml += `<p class="placeholder-text">Chỉ hiển thị ${bvEntries.length} mục xuất hiện trong luật đã lọc (ẩn ${res.num_transactions} cột giao dịch T).</p>`;
+                }
+                bvHtml += '<table><thead><tr><th>Mục (Item)</th><th>Support Count</th><th>Support %</th></tr></thead><tbody>';
+                bvEntries.forEach(([item, bv]) => {
                     const suppCnt = bv.reduce((a, b) => a + b, 0);
-                    bvHtml += `<tr><td><strong>${item}</strong></td>`;
-                    bv.forEach(val => {
-                        bvHtml += `<td style="${val === 1 ? 'color:#34d399; font-weight:bold;' : 'color:#94a3b8'}">${val}</td>`;
-                    });
-                    bvHtml += `<td><strong>${suppCnt}</strong></td></tr>`;
+                    const suppPct = ((suppCnt / res.num_transactions) * 100).toFixed(2);
+                    bvHtml += `<tr><td><strong>${item}</strong></td><td>${suppCnt}</td><td>${suppPct}%</td></tr>`;
                 });
                 bvHtml += '</tbody></table>';
                 bitvectorsBox.innerHTML = bvHtml;
 
-                // 2. Render Candidates C_k and Frequent F_k
+                // 2. Render Candidates C_k / Frequent F_k — only the table for the
+                //    entered k (Max Length); fall back to the largest k reached.
                 const itemsetsBox = document.getElementById('ap-itemsets-box');
-                let isHtml = '<h4 class="mt-3">2. Danh Sách Tập Ứng Viên C_k & Tập Phổ Biến F_k</h4>';
+                let shownSteps = res.itemset_steps.filter(s => s.k === maxLen);
+                if (shownSteps.length === 0) shownSteps = res.itemset_steps.slice(-1);
+                const kLabel = shownSteps.length ? shownSteps[shownSteps.length - 1].k : maxLen;
+                let isHtml = '<h4 class="mt-3">2. Tập Ứng Viên C_k & Tập Phổ Biến F_k (k = ' + kLabel + ')</h4>';
 
-                res.itemset_steps.forEach(step => {
+                shownSteps.forEach(step => {
                     isHtml += `<div class="step-card my-2">
                         <h5>Vòng k = ${step.k}:</h5>
                         <p><strong>C_${step.k} (${step.candidates_C_k.length} tập ứng viên):</strong></p>
