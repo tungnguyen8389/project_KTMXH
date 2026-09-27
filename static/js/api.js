@@ -64,10 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageHeading = document.getElementById('page-heading');
 
     const titles = {
-        'tab-roughset': '2. Tập thô & Rút gọn Thuộc tính (IND, Upper/Lower, Discriminiability Matrix)',
-        'tab-kmeans': '3. Phân cụm K-Means (Euclidean, Distance D_t, Partition U_t)',
-        'tab-apriori': '4. Luật kết hợp Apriori (Bitvector, Itemsets C_k/F_k, Rules)',
-        'tab-classification': '5. Phân lớp (ID3 Decision Tree & Naive Bayes Laplace)'
+        'tab-roughset': '3. Tập thô & Rút gọn Thuộc tính (IND, Upper/Lower, Discriminiability Matrix)',
+        'tab-kmeans': '4. Phân cụm K-Means (Euclidean, Distance D_t, Partition U_t)',
+        'tab-apriori': '1. Tập phổ biến - Luật kết hợp Apriori (Bitvector, Itemsets C_k/F_k, Rules)',
+        'tab-classification': '2. Phân lớp (ID3 Decision Tree & Naive Bayes Laplace)'
     };
 
     navItems.forEach(item => {
