@@ -34,23 +34,18 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="tab-preprocessing">
-                    <span class="text">1. Tiền xử lý Dữ liệu</span>
-                </button>
-                <button class="nav-item" data-tab="tab-apriori">
-                    <span class="text">2. Tập phổ biến & luật kết hợp</span>
+                <button class="nav-item active" data-tab="tab-apriori">
+                    <span class="text">1. Tập phổ biến & luật kết hợp</span>
                 </button>
                 <button class="nav-item" data-tab="tab-classification">
-                    <span class="text">3. ID3 & Naive Bayes</span>
+                    <span class="text">2. ID3 & Naive Bayes</span>
                 </button>
                 <button class="nav-item" data-tab="tab-roughset">
-                    <span class="text">4. Tập thô & Rút gọn</span>
+                    <span class="text">3. Tập thô & Rút gọn</span>
                 </button>
                 <button class="nav-item" data-tab="tab-kmeans">
-                    <span class="text">5. Phân cụm K-Means</span>
+                    <span class="text">4. Phân cụm K-Means</span>
                 </button>
-
-
             </nav>
 
             <div class="sidebar-footer">
@@ -69,7 +64,7 @@
             <!-- Topbar -->
             <header class="topbar">
                 <div class="topbar-title">
-                    <h1 id="page-heading">Tiền xử lý Dữ liệu (Min-Max & Z-Score)</h1>
+                    <h1 id="page-heading">1. Luật kết hợp Apriori (Bitvector, Itemsets C_k/F_k, Rules)</h1>
                     <p class="subtitle">Minh họa từng bước của các thuật toán khai phá dữ liệu</p>
                 </div>
 
@@ -96,7 +91,7 @@
     <script src="{% static 'js/ui_rough_set.js' %}"></script>
     <script src="{% static 'js/ui_kmeans.js' %}"></script>
     <script src="{% static 'js/ui_dtree.js' %}"></script>
-    <script src="{% static 'js/ui_apriori.js' %}"></script>
+    <script src="{% static 'js/ui_apriori.js' %}?v=20260927r"></script>
 
     {% block scripts %}{% endblock %}
 </body>

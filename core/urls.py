@@ -6,6 +6,7 @@ from .views import (
     ReductAPIView,
     KMeansAPIView,
     AprioriAPIView,
+    EncodeTransactionsAPIView,
     ID3APIView,
     NaiveBayesAPIView
 )
@@ -17,6 +18,7 @@ urlpatterns = [
     path('reduct/', ReductAPIView.as_view(), name='api_reduct'),
     path('kmeans/', KMeansAPIView.as_view(), name='api_kmeans'),
     path('apriori/', AprioriAPIView.as_view(), name='api_apriori'),
+    path('encode-transactions/', EncodeTransactionsAPIView.as_view(), name='api_encode_transactions'),
     path('id3/', ID3APIView.as_view(), name='api_id3'),
     path('naive-bayes/', NaiveBayesAPIView.as_view(), name='api_naive_bayes'),
 ]
