@@ -1,250 +1,175 @@
 import math
 import pandas as pd
-
+import numpy as np
 
 class ClassificationEngine:
     """
-    [TV3] Classification Engine: ID3 Decision Tree & Naive Bayes Classifier.
-
-    ID3 hỗ trợ đa lớp theo công thức entropy tổng quát (slide Bai5 s.40):
-        I(s1,...,sm) = - sum_i (si/s) * log2(si/s)
-    Bổ sung Gini index (s.39) và biến thể Quinlan chọn theo số "vector đơn vị" (s.27, s.33).
-
-    Naive Bayes: argmax_C P(C) * prod_j P(xj | C), có Laplace smoothing tùy chọn (Bai5.1).
+    [TV3] Classification Engine: ID3 Decision Tree & Naive Bayes Classifier
+    Calculates Entropy I(p,n), Expected Entropy E(A), Gain(A), builds Mermaid.js TD graph,
+    and Naive Bayes conditional probabilities with optional Laplace smoothing.
     """
 
     # ------------------ ID3 DECISION TREE ------------------
     @staticmethod
-    def _entropy_multiclass(counts):
-        total = sum(counts.values())
-        if total == 0:
+    def _entropy_from_counts(counts_dict, total):
+        if total <= 0:
             return 0.0
-        ent = 0.0
-        for c in counts.values():
-            if c <= 0:
-                continue
-            p = c / total
-            ent -= p * math.log2(p)
-        return ent
+        h = 0.0
+        for v in counts_dict.values():
+            if v > 0:
+                p = v / total
+                h -= p * math.log2(p)
+        return h
 
     @classmethod
-    def _entropy(cls, p, n):
-        # Backward-compat wrapper cho binary.
-        return cls._entropy_multiclass({"+": p, "-": n})
-
-    @staticmethod
-    def _gini(counts):
-        total = sum(counts.values())
-        if total == 0:
-            return 0.0
-        return 1.0 - sum((c / total) ** 2 for c in counts.values())
-
-    @staticmethod
-    def _quinlan_unit_count(sub_df, attr, target_attr):
-        # Số giá trị của `attr` mà tại đó toàn bộ mẫu cùng 1 class (leaf thuần).
-        grouped = sub_df.groupby(attr)[target_attr].nunique()
-        return int((grouped == 1).sum())
-
-    @classmethod
-    def run_id3(cls, data_list, condition_attrs, target_attr, criterion="gain"):
+    def run_id3(cls, data_list, condition_attrs, target_attr, criterion='gain'):
         """
-        criterion: "gain" (mặc định, Information Gain) | "gini" | "quinlan".
-        Giữ chữ ký cũ; các key `pos_val` / `neg_val` / `p_count` / `n_count` được giữ khi
-        target đúng 2 lớp để tương thích view/template hiện tại.
+        Build ID3 tree using one of two selection criteria from the course slides:
+          - 'gain'    : Information Gain (Slide 40, entropy-based, multi-class).
+          - 'quinlan' : Quinlan unit-vector heuristic (Slide 27, 33); pick attribute producing
+                        the most pure (single-class) child subsets, tie-broken by Information Gain.
         """
-        if criterion not in {"gain", "gini", "quinlan"}:
-            criterion = "gain"
+        if criterion not in ('gain', 'quinlan'):
+            criterion = 'gain'
 
         df = pd.DataFrame(data_list)
-        classes = sorted(df[target_attr].unique().tolist(), key=str)
-        is_binary = len(classes) == 2
-        pos_val = classes[0] if len(classes) >= 1 else None
-        neg_val = classes[1] if len(classes) >= 2 else None
+        classes = sorted(str(c) for c in df[target_attr].unique())
 
         steps = []
         node_counter = [0]
 
-        def class_counts_of(sub_df):
-            vc = sub_df[target_attr].value_counts().to_dict()
+        def counts_of(sub_df):
+            vc = sub_df[target_attr].astype(str).value_counts().to_dict()
             return {c: int(vc.get(c, 0)) for c in classes}
-
-        def leaf_node(node_id, label, total, cc):
-            return {
-                "id": node_id,
-                "label": str(label),
-                "is_leaf": True,
-                "type": "leaf",
-                "count": total,
-                "class_counts": cc,
-            }
 
         def build_tree(sub_df, curr_attrs, parent_label="Root"):
             node_counter[0] += 1
             node_id = f"node_{node_counter[0]}"
-
             total = len(sub_df)
-            cc = class_counts_of(sub_df)
+            cc = counts_of(sub_df)
 
-            # Điều kiện dừng (slide 26).
-            non_zero = [c for c, v in cc.items() if v > 0]
-            if total == 0:
-                return leaf_node(node_id, "∅", 0, cc)
-            if len(non_zero) == 1:
-                return leaf_node(node_id, non_zero[0], total, cc)
-            if not curr_attrs:
-                majority = max(cc, key=cc.get)
-                return leaf_node(node_id, majority, total, cc)
+            # Pure node: only one class present.
+            nonzero = [c for c, v in cc.items() if v > 0]
+            if len(nonzero) == 1:
+                return {"id": node_id, "label": nonzero[0], "is_leaf": True, "type": "leaf", "count": total}
+            if not curr_attrs or total == 0:
+                majority = max(cc, key=cc.get) if cc else "?"
+                return {"id": node_id, "label": majority, "is_leaf": True, "type": "leaf", "count": total}
 
-            total_info = cls._entropy_multiclass(cc)
-            total_gini = cls._gini(cc)
+            parent_entropy = cls._entropy_from_counts(cc, total)
 
             attr_details = {}
+            scores = {}  # higher = better
+
             for attr in curr_attrs:
-                e_A = 0.0
-                gini_split = 0.0
+                e_A = 0.0       # weighted entropy of children
+                unit_count = 0  # # of pure child subsets (Quinlan)
                 sub_details = []
-                for val in sorted(sub_df[attr].unique(), key=str):
-                    val_df = sub_df[sub_df[attr] == val]
-                    val_cc = class_counts_of(val_df)
-                    val_total = sum(val_cc.values())
-                    val_ent = cls._entropy_multiclass(val_cc)
-                    val_gini = cls._gini(val_cc)
-                    weight = val_total / total if total else 0.0
-                    e_A += weight * val_ent
-                    gini_split += weight * val_gini
 
-                    sd = {
+                for val, gdf in sub_df.groupby(attr):
+                    val_total = len(gdf)
+                    val_cc = counts_of(gdf)
+                    val_ent = cls._entropy_from_counts(val_cc, val_total)
+                    e_A += (val_total / total) * val_ent
+                    if val_total > 0 and max(val_cc.values()) == val_total:
+                        unit_count += 1
+                    sub_details.append({
                         "val": str(val),
-                        "class_counts": val_cc,
+                        "counts": val_cc,
+                        "total": val_total,
                         "entropy": round(val_ent, 4),
-                        "gini": round(val_gini, 4),
-                    }
-                    if is_binary:
-                        sd["p"] = int(val_cc.get(pos_val, 0))
-                        sd["n"] = int(val_cc.get(neg_val, 0))
-                    sub_details.append(sd)
+                    })
 
-                gain = total_info - e_A
-                unit_count = cls._quinlan_unit_count(sub_df, attr, target_attr)
+                gain = parent_entropy - e_A
                 attr_details[attr] = {
                     "expected_entropy_E": round(e_A, 4),
                     "gain": round(gain, 4),
-                    "gini_split": round(gini_split, 4),
                     "unit_count": unit_count,
                     "sub_details": sub_details,
                 }
 
-            if criterion == "gini":
-                best_attr = min(attr_details, key=lambda a: attr_details[a]["gini_split"])
-            elif criterion == "quinlan":
-                best_attr = max(
-                    attr_details,
-                    key=lambda a: (attr_details[a]["unit_count"], attr_details[a]["gain"]),
-                )
-            else:
-                best_attr = max(attr_details, key=lambda a: attr_details[a]["gain"])
+                if criterion == 'quinlan':
+                    # Prefer more unit-vector branches; tie-break with Information Gain.
+                    scores[attr] = (unit_count, gain)
+                else:
+                    scores[attr] = (gain,)
 
-            step_entry = {
+            best_attr = max(scores, key=scores.get)
+
+            steps.append({
                 "parent_label": parent_label,
                 "node_samples": total,
                 "class_counts": cc,
-                "info": round(total_info, 4),
-                "gini": round(total_gini, 4),
+                "info": round(parent_entropy, 4),
                 "attr_details": attr_details,
                 "selected_best_attr": best_attr,
-                "max_gain": attr_details[best_attr]["gain"],
-                "criterion": criterion,
-            }
-            if is_binary:
-                step_entry["p_count"] = int(cc.get(pos_val, 0))
-                step_entry["n_count"] = int(cc.get(neg_val, 0))
-                step_entry["info_p_n"] = round(total_info, 4)
-            steps.append(step_entry)
+            })
 
             children = []
             remaining_attrs = [a for a in curr_attrs if a != best_attr]
             for val in sorted(sub_df[best_attr].unique(), key=str):
                 child_df = sub_df[sub_df[best_attr] == val]
-                child_tree = build_tree(
-                    child_df, remaining_attrs, parent_label=f"{best_attr}={val}"
-                )
+                child_tree = build_tree(child_df, remaining_attrs, parent_label=f"{best_attr}={val}")
                 children.append({"branch_value": str(val), "child_node": child_tree})
 
-            return {
-                "id": node_id,
-                "label": best_attr,
-                "is_leaf": False,
-                "children": children,
-            }
+            return {"id": node_id, "label": best_attr, "is_leaf": False, "children": children}
 
         tree_structure = build_tree(df, condition_attrs)
+
+        # Generate Mermaid.js graph string (graph TD).
+        # Labels from real HR data can contain '&', '"', etc. which crash the
+        # Mermaid parser; escape them as HTML entities inside "..." wrappers.
+        def _esc(s):
+            return (str(s)
+                    .replace("&", "&amp;")
+                    .replace('"', "&quot;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;"))
 
         mermaid_lines = ["graph TD"]
 
         def generate_mermaid(node):
+            label = _esc(node["label"])
             if node["is_leaf"]:
-                mermaid_lines.append(f'    {node["id"]}[["{node["label"]}"]]')
+                mermaid_lines.append(f'    {node["id"]}[["{label}"]]')
             else:
-                mermaid_lines.append(f'    {node["id"]}{{"{node["label"]}"}}')
+                mermaid_lines.append(f'    {node["id"]}{{"{label}"}}')
                 for child_edge in node.get("children", []):
-                    branch_val = child_edge["branch_value"]
+                    branch_val = _esc(child_edge["branch_value"])
                     child_node = child_edge["child_node"]
                     generate_mermaid(child_node)
-                    mermaid_lines.append(
-                        f'    {node["id"]} -->|"{branch_val}"| {child_node["id"]}'
-                    )
+                    mermaid_lines.append(f'    {node["id"]} -->|"{branch_val}"| {child_node["id"]}')
 
         generate_mermaid(tree_structure)
-        mermaid_graph = "\n".join(mermaid_lines)
 
-        result = {
+        return {
             "target_attr": target_attr,
-            "classes": [str(c) for c in classes],
             "criterion": criterion,
+            "classes": classes,
             "total_samples": len(df),
             "steps": steps,
             "tree_structure": tree_structure,
-            "mermaid_graph": mermaid_graph,
+            "mermaid_graph": "\n".join(mermaid_lines),
         }
-        if is_binary:
-            result["pos_val"] = str(pos_val)
-            result["neg_val"] = str(neg_val)
-        return result
 
     # ------------------ NAIVE BAYES ------------------
     @staticmethod
     def run_naive_bayes(data_list, condition_attrs, target_attr, test_instance, use_laplace=False):
         """
-        test_instance: dict giá trị đặc trưng, ví dụ {'Outlook':'Sunny','Temp':'Cool',...}.
-        use_laplace: bật smoothing (num+1)/(c_count+|V|) theo từng attr.
+        test_instance: dict of feature values e.g. {'Outlook': 'Sunny', 'Temp': 'Cool', 'Humidity': 'High', 'Wind': 'Strong'}
+        use_laplace: boolean (Laplace smoothing)
         """
         df = pd.DataFrame(data_list)
         total_samples = len(df)
-        classes = sorted(df[target_attr].unique().tolist(), key=str)
+        classes = sorted(list(df[target_attr].unique()))
 
         class_priors = {}
         class_counts = {}
-        for c in classes:
-            cnt = int(len(df[df[target_attr] == c]))
-            class_counts[c] = cnt
-            class_priors[c] = cnt / total_samples if total_samples else 0.0
 
-        # Bảng likelihood P(attr=val | class) theo format slide 15 Bai5.1.
-        likelihood_table = {}
-        for attr in condition_attrs:
-            vocab = sorted(df[attr].unique().tolist(), key=str)
-            num_vocab = len(vocab)
-            likelihood_table[attr] = {}
-            for val in vocab:
-                likelihood_table[attr][str(val)] = {}
-                for c in classes:
-                    c_count = class_counts[c]
-                    match = int(len(df[(df[target_attr] == c) & (df[attr] == val)]))
-                    if use_laplace:
-                        prob = (match + 1) / (c_count + num_vocab) if (c_count + num_vocab) else 0.0
-                    else:
-                        prob = match / c_count if c_count > 0 else 0.0
-                    likelihood_table[attr][str(val)][str(c)] = round(prob, 4)
+        for c in classes:
+            cnt = len(df[df[target_attr] == c])
+            class_counts[c] = cnt
+            class_priors[c] = cnt / total_samples
 
         conditional_probs = {}
         posterior_scores = {}
@@ -259,27 +184,20 @@ class ClassificationEngine:
 
             for attr in condition_attrs:
                 val = test_instance.get(attr)
-                match_count = int(len(c_df[c_df[attr] == val]))
+                match_count = len(c_df[c_df[attr] == val])
 
                 if use_laplace:
                     num_vocab = len(df[attr].unique())
-                    denom = c_count + num_vocab
-                    prob = (match_count + 1) / denom if denom else 0.0
-                    katex_terms.append(
-                        f"P({attr}={val} \\mid {c}) = "
-                        f"\\frac{{{match_count} + 1}}{{{c_count} + {num_vocab}}} = {prob:.4f}"
-                    )
+                    prob = (match_count + 1) / (c_count + num_vocab)
+                    katex_terms.append(f"P({attr}={val} \\mid {c}) = \\frac{{{match_count} + 1}}{{{c_count} + {num_vocab}}} = {prob:.4f}")
                 else:
                     prob = match_count / c_count if c_count > 0 else 0.0
-                    katex_terms.append(
-                        f"P({attr}={val} \\mid {c}) = "
-                        f"\\frac{{{match_count}}}{{{c_count}}} = {prob:.4f}"
-                    )
+                    katex_terms.append(f"P({attr}={val} \\mid {c}) = \\frac{{{match_count}}}{{{c_count}}} = {prob:.4f}")
 
                 cond_details[attr] = {
                     "val": val,
                     "match_count": match_count,
-                    "prob": round(prob, 4),
+                    "prob": round(prob, 4)
                 }
                 prod_prob *= prob
 
@@ -290,25 +208,23 @@ class ClassificationEngine:
                 "class_val": str(c),
                 "prior": round(class_priors[c], 4),
                 "katex_terms": katex_terms,
-                "unnormalized_posterior": round(prod_prob, 6),
+                "unnormalized_posterior": round(prod_prob, 6)
             })
 
+        # Normalize probabilities
         total_score = sum(posterior_scores.values())
         normalized_posteriors = {}
         for c, score in posterior_scores.items():
-            normalized_posteriors[str(c)] = round(score / total_score, 4) if total_score > 0 else 0.0
+            normalized_posteriors[c] = round(score / total_score, 4) if total_score > 0 else 0.0
 
-        predicted_class = max(posterior_scores, key=posterior_scores.get) if posterior_scores else None
+        predicted_class = max(normalized_posteriors, key=normalized_posteriors.get)
 
         return {
             "test_instance": test_instance,
             "use_laplace": use_laplace,
-            "classes": [str(c) for c in classes],
             "class_priors": {str(k): round(v, 4) for k, v in class_priors.items()},
-            "likelihood_table": likelihood_table,
-            "conditional_probs": conditional_probs,
             "katex_steps": katex_steps,
             "posterior_scores": {str(k): round(v, 6) for k, v in posterior_scores.items()},
             "normalized_posteriors": normalized_posteriors,
-            "predicted_class": str(predicted_class) if predicted_class is not None else None,
+            "predicted_class": predicted_class
         }

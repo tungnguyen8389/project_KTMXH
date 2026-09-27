@@ -36,15 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ccStr = Object.entries(step.class_counts || {}).map(([k, v]) => `${k}=${v}`).join(', ');
                     html += `<div class="step-card my-2">
                         <p><strong>Nút Split ${idx + 1} (${step.parent_label}):</strong> Mẫu = ${step.node_samples} [${ccStr}] · Tiêu chí = <em>${crit}</em></p>
-                        <p>$$Entropy(S) = ${step.info} \\quad Gini(S) = ${step.gini}$$</p>
+                        <p>$$Entropy(S) = ${step.info}$$</p>
                         <ul class="mt-2">`;
                     Object.entries(step.attr_details).forEach(([attr, det]) => {
                         const isMax = attr === step.selected_best_attr;
-                        const metric = crit === 'gini'
-                            ? `Gini_split(${attr}) = ${det.gini_split}`
-                            : crit === 'quinlan'
-                                ? `Quinlan(${attr}): #vector đơn vị = ${det.unit_count}, Gain = ${det.gain}`
-                                : `Gain(${attr}) = ${step.info} - ${det.expected_entropy_E} = ${det.gain}`;
+                        const metric = crit === 'quinlan'
+                            ? `Quinlan(${attr}): #vector đơn vị = ${det.unit_count}, Gain = ${det.gain}`
+                            : `Gain(${attr}) = ${step.info} - ${det.expected_entropy_E} = ${det.gain}`;
                         html += `<li style="${isMax ? 'color:#4f46e5; font-weight:bold;' : ''}">${metric}</li>`;
                     });
                     html += `</ul><p class="mt-2">➔ <strong>Chọn thuộc tính chia: <span style="color:#059669">${step.selected_best_attr}</span></strong></p></div>`;
@@ -55,6 +53,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderMathInElement(stepsOutput, { delimiters: [{ left: '$$', right: '$$', display: true }] });
                 }
 
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    // ---------------- HR PREFILL (Attrition dataset from DB) ----------------
+    const btnPrefill = document.getElementById('btn-prefill-cl-hr');
+    if (btnPrefill) {
+        btnPrefill.addEventListener('click', async () => {
+            try {
+                const res = await API.get('classification-data');
+                const rpt = res.report || {};
+                const target = rpt.target_attr || 'Attrition';
+                const defaultAttrs = rpt.default_selected_attrs || [];
+                const pool = rpt.available_attrs || [];
+
+                document.getElementById('cl-cond-attrs').value = defaultAttrs.join(', ');
+                document.getElementById('cl-target-attr').value = target;
+                document.getElementById('cl-json-input').value = JSON.stringify(res.data, null, 2);
+                // Provide a matching test instance skeleton for Naive Bayes (default subset only).
+                const sample = {};
+                if (res.data && res.data[0]) {
+                    defaultAttrs.forEach(a => { sample[a] = res.data[0][a]; });
+                }
+                document.getElementById('nb-test-instance').value = JSON.stringify(sample);
+                // Recommend Laplace on real skewed data.
+                const laplace = document.getElementById('nb-laplace');
+                if (laplace) laplace.checked = true;
+
+                const info = document.getElementById('cl-prefill-report');
+                if (info) {
+                    const dist = Object.entries(rpt.class_distribution || {})
+                        .map(([k, v]) => `${k}=${v}`).join(', ');
+                    info.innerHTML =
+                        `Đã nạp <strong>${rpt.num_records}</strong> bản ghi · nhãn <strong>${target}</strong> (${dist})<br>` +
+                        `Thuộc tính có thể chọn: <code>${pool.join(', ')}</code><br>` +
+                        `Đang chọn mặc định <strong>${defaultAttrs.length}</strong> thuộc tính để cây gọn. Muốn thêm — sửa ô "Thuộc tính điều kiện" ở trên.`;
+                }
             } catch (e) {
                 console.error(e);
             }

@@ -12,7 +12,7 @@ from .algorithms.reduct import ReductEngine
 from .algorithms.kmeans import KMeansEngine
 from .algorithms.association import AprioriEngine
 from .algorithms.classification import ClassificationEngine
-from .transaction_encoder import encode_transactions
+from .transaction_encoder import encode_transactions, encode_records
 
 
 class IndexView(TemplateView):
@@ -157,6 +157,26 @@ class EncodeTransactionsAPIView(APIView):
             df = pd.DataFrame(hr_records())
             transactions, report = encode_transactions(df)
             return Response({'transactions': transactions, 'report': report},
+                            status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ClassificationDataAPIView(APIView):
+    """[TV3] Prefill classification tab (ID3 / Naive Bayes) from the HR DB.
+
+    Reuses the Apriori binning so numeric columns come back as readable labels.
+    Response shape matches what tab_classification.html needs to fill textarea +
+    condition/target fields directly.
+    """
+    def get(self, request):
+        if not Employee.objects.exists():
+            return Response({'error': 'Chưa có dữ liệu nhân sự trong hệ thống.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            df = pd.DataFrame(hr_records())
+            records, report = encode_records(df)
+            return Response({'data': records, 'report': report},
                             status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
