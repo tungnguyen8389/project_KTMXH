@@ -1,24 +1,75 @@
 <!-- TAB 3: K-MEANS CLUSTERING [TV2 + TV4] -->
 <section id="tab-kmeans" class="tab-panel">
-    <div class="panel-grid">
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header flex-between">
                 <h3>Tham Số Phân Cụm K-Means</h3>
+                <div class="btn-group-sm">
+                    <button type="button" id="km-mode-db" class="btn btn-primary btn-sm active">📊 Dữ Liệu Nhân Sự (DB)</button>
+                    <button type="button" id="km-mode-custom" class="btn btn-secondary btn-sm">📝 Dữ Liệu Tùy Chỉnh (JSON)</button>
+                </div>
             </div>
             <div class="card-body">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Số cụm K:</label>
-                        <input type="number" id="km-k" class="form-control" value="2" min="2" max="5">
+                <!-- 1. Database Mode Controls -->
+                <div id="km-db-controls">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Trục X (Đặc trưng 1):</label>
+                            <select id="km-feature-x" class="form-control">
+                                <option value="Age" selected>Tuổi (Age)</option>
+                                <option value="TotalWorkingYears">Tổng số năm kinh nghiệm (TotalWorkingYears)</option>
+                                <option value="YearsAtCompany">Số năm tại công ty (YearsAtCompany)</option>
+                                <option value="DistanceFromHome">Khoảng cách đến cty (DistanceFromHome)</option>
+                                <option value="MonthlyIncome">Thu nhập hàng tháng (MonthlyIncome)</option>
+                                <option value="DailyRate">Mức lương theo ngày (DailyRate)</option>
+                                <option value="HourlyRate">Mức lương theo giờ (HourlyRate)</option>
+                                <option value="PercentSalaryHike">% Tăng lương gần nhất (PercentSalaryHike)</option>
+                                <option value="YearsInCurrentRole">Số năm ở vị trí hiện tại (YearsInCurrentRole)</option>
+                                <option value="YearsSinceLastPromotion">Số năm từ lần thăng chức cuối</option>
+                                <option value="WorkLifeBalance">Cân bằng công việc/cuộc sống (WorkLifeBalance)</option>
+                                <option value="JobSatisfaction">Hài lòng công việc (JobSatisfaction)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Trục Y (Đặc trưng 2):</label>
+                            <select id="km-feature-y" class="form-control">
+                                <option value="MonthlyIncome" selected>Thu nhập hàng tháng (MonthlyIncome)</option>
+                                <option value="PercentSalaryHike">% Tăng lương gần nhất (PercentSalaryHike)</option>
+                                <option value="YearsAtCompany">Số năm tại công ty (YearsAtCompany)</option>
+                                <option value="TotalWorkingYears">Tổng số năm kinh nghiệm (TotalWorkingYears)</option>
+                                <option value="Age">Tuổi (Age)</option>
+                                <option value="DistanceFromHome">Khoảng cách đến cty (DistanceFromHome)</option>
+                                <option value="WorkLifeBalance">Cân bằng công việc/cuộc sống (WorkLifeBalance)</option>
+                                <option value="JobSatisfaction">Hài lòng công việc (JobSatisfaction)</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Số vòng lặp tối đa:</label>
-                        <input type="number" id="km-max-iter" class="form-control" value="10">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Số lượng mẫu phân tích:</label>
+                            <select id="km-sample-size" class="form-control">
+                                <option value="150" selected>150 nhân viên (Trực quan mượt mà)</option>
+                                <option value="300">300 nhân viên</option>
+                                <option value="500">500 nhân viên</option>
+                                <option value="0">Toàn bộ 1.470 nhân viên (Toàn bộ DB)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;margin-top:1.8rem;">
+                            <input type="checkbox" id="km-normalize" checked style="width:1.2rem;height:1.2rem;cursor:pointer;">
+                            <label for="km-normalize" style="cursor:pointer;margin-bottom:0;">
+                                <strong>Chuẩn hóa Min-Max khi tính khoảng cách</strong>
+                                <small class="text-muted" style="display:block;">(Giúp 2 trục có thang đo chênh lệch không bị áp đảo)</small>
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Tập điểm không gian 2D (JSON):</label>
-                    <textarea id="km-points-input" class="form-control code-editor" rows="7">[
+
+                <!-- 2. Custom JSON Mode Controls -->
+                <div id="km-custom-controls" style="display:none;">
+                    <div class="form-group">
+                        <label>Tập điểm không gian 2D (JSON format):</label>
+                        <textarea id="km-points-input" class="form-control code-editor" rows="6">[
   {"id": "P1", "x": 2.0, "y": 10.0},
   {"id": "P2", "x": 2.0, "y": 5.0},
   {"id": "P3", "x": 8.0, "y": 4.0},
@@ -28,21 +79,67 @@
   {"id": "P7", "x": 1.0, "y": 2.0},
   {"id": "P8", "x": 4.0, "y": 9.0}
 ]</textarea>
+                    </div>
                 </div>
-                <button id="btn-run-kmeans" class="btn btn-primary btn-block">Phân Cụm Step-by-Step</button>
+
+                <!-- 3. Common Hyperparameters -->
+                <div class="form-row mt-3">
+                    <div class="form-group">
+                        <label>Số cụm K:</label>
+                        <input type="number" id="km-k" class="form-control" value="3" min="2" max="6">
+                    </div>
+                    <div class="form-group">
+                        <label>Số vòng lặp tối đa:</label>
+                        <input type="number" id="km-max-iter" class="form-control" value="15" min="1" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Phương pháp khởi tạo tâm:</label>
+                        <select id="km-init-method" class="form-control">
+                            <option value="kmeans++" selected>K-Means++ (Tối ưu khoảng cách)</option>
+                            <option value="random">Ngẫu nhiên (Random)</option>
+                            <option value="first_k">K điểm đầu tiên (First-K)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="btn-run-kmeans" class="btn btn-primary btn-block mt-3" style="font-size:1.05rem;font-weight:600;">
+                    🚀 Chạy Phân Cụm K-Means
+                </button>
             </div>
         </div>
 
-        <div class="card">
+        <!-- 4. Visualization & Output -->
+        <div class="card" id="km-results-card" style="display:none;">
             <div class="card-header flex-between">
-                <h3>Biểu Đồ Dynamic 2D Scatter</h3>
-                <div id="km-step-controls" class="btn-group-sm"></div>
+                <div>
+                    <h3 id="km-chart-title">Biểu Đồ Dynamic 2D Scatter</h3>
+                    <small id="km-chart-subtitle" class="text-muted"></small>
+                </div>
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <button id="km-btn-autoplay" class="btn btn-secondary btn-sm">▶ Tự động phát</button>
+                    <div id="km-step-controls" class="btn-group-sm"></div>
+                </div>
             </div>
             <div class="card-body">
-                <div class="chart-wrapper">
+                <!-- Summary KPI badges -->
+                <div id="km-kpis" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
+
+                <div class="chart-wrapper" style="position:relative;height:420px;">
                     <canvas id="kmeansChart"></canvas>
                 </div>
-                <div id="km-tables-output" class="mt-4"></div>
+
+                <!-- Cluster Profiles / Insights -->
+                <div id="km-cluster-profiles-box" class="mt-4"></div>
+
+                <!-- Collapsible Step Matrices -->
+                <div class="mt-4">
+                    <details>
+                        <summary style="cursor:pointer;font-weight:600;color:var(--primary);padding:0.5rem 0;">
+                            📐 Xem Chi Tiết Ma Trận Khoảng Cách D^(t) & Ma Trận Phân Hoạch U^(t)
+                        </summary>
+                        <div id="km-tables-output" class="mt-3"></div>
+                    </details>
+                </div>
             </div>
         </div>
     </div>

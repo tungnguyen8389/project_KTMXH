@@ -11,3 +11,5 @@ ENV/
 .idea/
 .vscode/
 GIT_WORKFLOW.md
+docs/K-mean/
+

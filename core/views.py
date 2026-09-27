@@ -102,23 +102,97 @@ class ReductAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+NUMERIC_HR_FEATURES = [
+    {"field": "Age", "label": "Tuổi (Age)"},
+    {"field": "MonthlyIncome", "label": "Thu nhập hàng tháng ($)"},
+    {"field": "TotalWorkingYears", "label": "Tổng số năm kinh nghiệm"},
+    {"field": "YearsAtCompany", "label": "Số năm tại công ty"},
+    {"field": "DistanceFromHome", "label": "Khoảng cách đến cty (km)"},
+    {"field": "DailyRate", "label": "Mức lương theo ngày ($)"},
+    {"field": "HourlyRate", "label": "Mức lương theo giờ ($)"},
+    {"field": "PercentSalaryHike", "label": "% Tăng lương gần nhất"},
+    {"field": "YearsInCurrentRole", "label": "Số năm ở vị trí hiện tại"},
+    {"field": "YearsSinceLastPromotion", "label": "Số năm từ lần thăng chức cuối"},
+    {"field": "YearsWithCurrManager", "label": "Số năm làm việc với sếp hiện tại"},
+    {"field": "WorkLifeBalance", "label": "Cân bằng công việc/cuộc sống (1-4)"},
+    {"field": "JobSatisfaction", "label": "Hài lòng công việc (1-4)"},
+    {"field": "EnvironmentSatisfaction", "label": "Hài lòng môi trường (1-4)"},
+]
+
+
 class KMeansAPIView(APIView):
-    """[TV3] Dispatcher API for K-Means Clustering step-by-step"""
+    """[TV3] Dispatcher API for K-Means Clustering step-by-step from DB or custom JSON"""
+    def get(self, request):
+        """Return available numeric features and total employee count in DB"""
+        emp_count = Employee.objects.count()
+        return Response({
+            "features": NUMERIC_HR_FEATURES,
+            "total_employees": emp_count
+        }, status=status.HTTP_200_OK)
+
     def post(self, request):
         try:
             payload = request.data
-            points = payload.get('points', [])
-            k = int(payload.get('k', 2))
+            use_db = payload.get('use_db', False) or (payload.get('source') == 'db')
+            k = int(payload.get('k', 3))
+            max_iter = int(payload.get('max_iter', 15))
+            init_method = payload.get('init_method', 'kmeans++')
+            normalize = bool(payload.get('normalize', False))
             initial_centroids = payload.get('initial_centroids', None)
-            max_iter = int(payload.get('max_iter', 10))
 
-            if not points:
-                return Response({'error': 'Danh sách điểm points không được rỗng!'}, status=status.HTTP_400_BAD_REQUEST)
+            feature_x_name = "X"
+            feature_y_name = "Y"
 
-            result = KMeansEngine.run_kmeans(points, k, initial_centroids, max_iter)
+            if use_db or ('feature_x' in payload and 'feature_y' in payload and not payload.get('points')):
+                feature_x = payload.get('feature_x', 'Age')
+                feature_y = payload.get('feature_y', 'MonthlyIncome')
+                sample_size = int(payload.get('sample_size', 150))
+
+                feature_x_name = next((f['label'] for f in NUMERIC_HR_FEATURES if f['field'] == feature_x), feature_x)
+                feature_y_name = next((f['label'] for f in NUMERIC_HR_FEATURES if f['field'] == feature_y), feature_y)
+
+                qs = Employee.objects.all()
+                if not qs.exists():
+                    return Response({'error': 'Cơ sở dữ liệu nhân viên đang trống. Hãy kiểm tra lại data/init.sql!'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if sample_size > 0:
+                    qs = qs[:sample_size]
+
+                points = []
+                for emp in qs:
+                    val_x = getattr(emp, feature_x, 0.0)
+                    val_y = getattr(emp, feature_y, 0.0)
+                    points.append({
+                        'id': f"NV{emp.pk}",
+                        'x': float(val_x),
+                        'y': float(val_y),
+                        'meta': {
+                            'attrition': emp.Attrition,
+                            'job_role': emp.JobRole,
+                            'department': emp.Department
+                        }
+                    })
+            else:
+                points = payload.get('points', [])
+                if not points:
+                    return Response({'error': 'Danh sách điểm points không được rỗng!'}, status=status.HTTP_400_BAD_REQUEST)
+
+            result = KMeansEngine.run_kmeans(
+                points=points,
+                k=k,
+                initial_centroids=initial_centroids,
+                max_iter=max_iter,
+                init_method=init_method,
+                normalize=normalize
+            )
+            result['feature_x_name'] = feature_x_name
+            result['feature_y_name'] = feature_y_name
+            result['total_points'] = len(points)
+
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class AprioriAPIView(APIView):

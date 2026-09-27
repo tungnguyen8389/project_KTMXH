@@ -414,3 +414,59 @@ class AprioriTheoryTest(TestCase):
                 by_set[frozenset(c["itemset"])] = c["support_count"]
         self.assertEqual(by_set[frozenset(["i2", "i3"])], 4)  # 4/5 = 0.8
         self.assertEqual(by_set[frozenset(["i3", "i4"])], 3)  # 3/5 = 0.6
+
+
+class KMeansIntegrationTest(TestCase):
+    """Unit tests for K-Means Clustering on HR database records and algorithms."""
+
+    def setUp(self):
+        # Create a mini set of employees with distinct age & income clusters
+        Employee.objects.create(Age=22, MonthlyIncome=2500, Attrition="Yes", JobRole="Sales Rep")
+        Employee.objects.create(Age=24, MonthlyIncome=2800, Attrition="Yes", JobRole="Sales Rep")
+        Employee.objects.create(Age=25, MonthlyIncome=3000, Attrition="No", JobRole="Research Scientist")
+        Employee.objects.create(Age=50, MonthlyIncome=15000, Attrition="No", JobRole="Manager")
+        Employee.objects.create(Age=55, MonthlyIncome=16000, Attrition="No", JobRole="Director")
+        Employee.objects.create(Age=58, MonthlyIncome=17000, Attrition="No", JobRole="Manager")
+
+    def test_kmeans_engine_kmeans_plus_plus(self):
+        points = [
+            {"id": "P1", "x": 22, "y": 2500, "meta": {"attrition": "Yes"}},
+            {"id": "P2", "x": 24, "y": 2800, "meta": {"attrition": "Yes"}},
+            {"id": "P3", "x": 55, "y": 16000, "meta": {"attrition": "No"}},
+            {"id": "P4", "x": 58, "y": 17000, "meta": {"attrition": "No"}},
+        ]
+        res = KMeansEngine.run_kmeans(points, k=2, init_method="kmeans++", normalize=True)
+        self.assertEqual(res["k"], 2)
+        self.assertTrue(res["converged"])
+        self.assertEqual(len(res["cluster_profiles"]), 2)
+        self.assertIn("final_wcss", res)
+
+    def test_kmeans_api_with_db_data(self):
+        resp = self.client.post("/api/kmeans/", data={
+            "use_db": True,
+            "feature_x": "Age",
+            "feature_y": "MonthlyIncome",
+            "k": 2,
+            "max_iter": 10,
+            "init_method": "kmeans++",
+            "normalize": True,
+            "sample_size": 10
+        }, content_type="application/json")
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["total_points"], 6)
+        self.assertEqual(data["k"], 2)
+        self.assertEqual(len(data["cluster_profiles"]), 2)
+        # Verify attrition statistics in cluster profiles
+        attr_sum = sum(p["attrition_count"] for p in data["cluster_profiles"])
+        self.assertEqual(attr_sum, 2)
+
+    def test_kmeans_api_get_features(self):
+        resp = self.client.get("/api/kmeans/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("features", data)
+        self.assertGreater(len(data["features"]), 5)
+        self.assertEqual(data["total_employees"], 6)
+
