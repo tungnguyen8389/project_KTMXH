@@ -1,7 +1,6 @@
 from django.urls import path
 from .views import (
     DatasetListAPIView,
-    DatasetImportAPIView,
     PreprocessingAPIView,
     RoughSetAPIView,
     ReductAPIView,
@@ -14,7 +13,6 @@ from .views import (
 
 urlpatterns = [
     path('datasets/', DatasetListAPIView.as_view(), name='api_datasets'),
-    path('import/', DatasetImportAPIView.as_view(), name='api_import'),
     path('preprocessing/', PreprocessingAPIView.as_view(), name='api_preprocessing'),
     path('rough-set/', RoughSetAPIView.as_view(), name='api_rough_set'),
     path('reduct/', ReductAPIView.as_view(), name='api_reduct'),

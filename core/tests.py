@@ -249,21 +249,25 @@ class TransactionEncoderTest(TestCase):
         self.assertTrue(toks)
 
 
-from core.models import Dataset
+from core.models import Employee
 
 
 class EncodeEndpointTest(TestCase):
     def test_no_dataset_returns_400(self):
-        # WHY: user hits the button before importing; must be a clean 400, not 500.
+        # WHY: dataset seeding is skipped under tests, so an empty Employee table
+        # must yield a clean 400, not a 500, when the encode endpoint is hit.
         resp = self.client.get("/api/encode-transactions/")
         self.assertEqual(resp.status_code, 400)
         self.assertIn("error", resp.json())
 
     def test_returns_transactions_matching_row_count(self):
+        # WHY: the encode endpoint now reads the relational Employee table; N rows
+        # in must yield N transactions out (other columns keep their defaults).
         rows = [{"Age": 25, "OverTime": "Yes", "Attrition": "No"},
                 {"Age": 55, "OverTime": "No", "Attrition": "Yes"},
                 {"Age": 40, "OverTime": "Yes", "Attrition": "Yes"}]
-        Dataset.objects.create(name="HR", category="APRIORI", data_json=rows)
+        for row in rows:
+            Employee.objects.create(**row)
         resp = self.client.get("/api/encode-transactions/")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()

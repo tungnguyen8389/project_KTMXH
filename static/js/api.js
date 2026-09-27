@@ -67,30 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'tab-roughset': '2. Tập thô & Rút gọn Thuộc tính (IND, Upper/Lower, Discriminiability Matrix)',
         'tab-kmeans': '3. Phân cụm K-Means (Euclidean, Distance D_t, Partition U_t)',
         'tab-apriori': '4. Luật kết hợp Apriori (Bitvector, Itemsets C_k/F_k, Rules)',
-        'tab-classification': '5. Phân lớp (ID3 Decision Tree & Naive Bayes Laplace)',
-        'tab-import': 'Nhập Dữ liệu từ tệp CSV'
+        'tab-classification': '5. Phân lớp (ID3 Decision Tree & Naive Bayes Laplace)'
     };
-
-    // Gate: algorithm tabs stay locked until data is imported in this browser.
-    const IMPORT_FLAG = 'ktmxh_data_imported';
-    function setTabsLocked(locked) {
-        navItems.forEach(item => {
-            if (item.getAttribute('data-tab') === 'tab-import') return;
-            item.classList.toggle('locked', locked);
-        });
-    }
-    // Called by ui_import.js after a successful import.
-    window.unlockDataTabs = function () {
-        try { localStorage.setItem(IMPORT_FLAG, '1'); } catch (e) { /* ignore */ }
-        setTabsLocked(false);
-    };
-    let alreadyImported = false;
-    try { alreadyImported = localStorage.getItem(IMPORT_FLAG) === '1'; } catch (e) { /* ignore */ }
-    setTabsLocked(!alreadyImported);
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
-            if (item.classList.contains('locked')) return;
             const targetTab = item.getAttribute('data-tab');
 
             navItems.forEach(nav => nav.classList.remove('active'));

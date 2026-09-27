@@ -1,11 +1,11 @@
 from django.contrib import admin
-from .models import Dataset, ExecutionHistory
+from .models import Employee, ExecutionHistory
 
-@admin.register(Dataset)
-class DatasetAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'category', 'created_at')
-    list_filter = ('category',)
-    search_fields = ('name', 'description')
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'Age', 'Department', 'JobRole', 'Attrition')
+    list_filter = ('Attrition', 'Department', 'JobRole')
+    search_fields = ('JobRole', 'Department')
 
 @admin.register(ExecutionHistory)
 class ExecutionHistoryAdmin(admin.ModelAdmin):
