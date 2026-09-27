@@ -5,8 +5,8 @@ import numpy as np
 class ClassificationEngine:
     """
     [TV3] Classification Engine: ID3 Decision Tree & Naive Bayes Classifier
-    Calculates Entropy I(p,n), Expected Entropy E(A), Gain(A), builds Mermaid.js TD graph,
-    and Naive Bayes conditional probabilities with optional Laplace smoothing.
+    Calculates Entropy I(p,n), Expected Entropy E(A), Gain(A), Gini Split,
+    builds Mermaid.js TD graph, and Naive Bayes conditional probabilities with Laplace smoothing.
     """
 
     # ------------------ ID3 DECISION TREE ------------------
@@ -21,15 +21,22 @@ class ClassificationEngine:
                 h -= p * math.log2(p)
         return h
 
+    @staticmethod
+    def _gini_from_counts(counts_dict, total):
+        if total <= 0:
+            return 0.0
+        sum_sq = sum((v / total) ** 2 for v in counts_dict.values())
+        return 1.0 - sum_sq
+
     @classmethod
     def run_id3(cls, data_list, condition_attrs, target_attr, criterion='gain'):
         """
-        Build ID3 tree using one of two selection criteria from the course slides:
-          - 'gain'    : Information Gain (Slide 40, entropy-based, multi-class).
-          - 'quinlan' : Quinlan unit-vector heuristic (Slide 27, 33); pick attribute producing
-                        the most pure (single-class) child subsets, tie-broken by Information Gain.
+        Build ID3 tree using one of selection criteria:
+          - 'gain'    : Information Gain (entropy-based, multi-class).
+          - 'quinlan' : Quinlan unit-vector heuristic; pick attribute producing pure child subsets.
+          - 'gini'    : Gini Impurity (CART-style min Gini split).
         """
-        if criterion not in ('gain', 'quinlan'):
+        if criterion not in ('gain', 'quinlan', 'gini'):
             criterion = 'gain'
 
         df = pd.DataFrame(data_list)
@@ -63,6 +70,7 @@ class ClassificationEngine:
 
             for attr in curr_attrs:
                 e_A = 0.0       # weighted entropy of children
+                gini_split = 0.0 # weighted gini of children
                 unit_count = 0  # # of pure child subsets (Quinlan)
                 sub_details = []
 
@@ -70,7 +78,9 @@ class ClassificationEngine:
                     val_total = len(gdf)
                     val_cc = counts_of(gdf)
                     val_ent = cls._entropy_from_counts(val_cc, val_total)
+                    val_gini = cls._gini_from_counts(val_cc, val_total)
                     e_A += (val_total / total) * val_ent
+                    gini_split += (val_total / total) * val_gini
                     if val_total > 0 and max(val_cc.values()) == val_total:
                         unit_count += 1
                     sub_details.append({
@@ -78,12 +88,14 @@ class ClassificationEngine:
                         "counts": val_cc,
                         "total": val_total,
                         "entropy": round(val_ent, 4),
+                        "gini": round(val_gini, 4),
                     })
 
                 gain = parent_entropy - e_A
                 attr_details[attr] = {
                     "expected_entropy_E": round(e_A, 4),
                     "gain": round(gain, 4),
+                    "gini_split": round(gini_split, 4),
                     "unit_count": unit_count,
                     "sub_details": sub_details,
                 }
@@ -91,6 +103,9 @@ class ClassificationEngine:
                 if criterion == 'quinlan':
                     # Prefer more unit-vector branches; tie-break with Information Gain.
                     scores[attr] = (unit_count, gain)
+                elif criterion == 'gini':
+                    # Lower gini is better
+                    scores[attr] = (-gini_split,)
                 else:
                     scores[attr] = (gain,)
 
@@ -117,8 +132,6 @@ class ClassificationEngine:
         tree_structure = build_tree(df, condition_attrs)
 
         # Generate Mermaid.js graph string (graph TD).
-        # Labels from real HR data can contain '&', '"', etc. which crash the
-        # Mermaid parser; escape them as HTML entities inside "..." wrappers.
         def _esc(s):
             return (str(s)
                     .replace("&", "&amp;")
@@ -174,6 +187,23 @@ class ClassificationEngine:
         conditional_probs = {}
         posterior_scores = {}
         katex_steps = []
+        likelihood_table = {}
+
+        for attr in condition_attrs:
+            likelihood_table[attr] = {}
+            distinct_vals = df[attr].unique()
+            for val in distinct_vals:
+                likelihood_table[attr][str(val)] = {}
+                for c in classes:
+                    c_df = df[df[target_attr] == c]
+                    c_count = class_counts[c]
+                    match_count = len(c_df[c_df[attr] == val])
+                    if use_laplace:
+                        num_vocab = len(distinct_vals)
+                        prob = (match_count + 1) / (c_count + num_vocab)
+                    else:
+                        prob = match_count / c_count if c_count > 0 else 0.0
+                    likelihood_table[attr][str(val)][str(c)] = prob
 
         for c in classes:
             c_df = df[df[target_attr] == c]
@@ -223,8 +253,10 @@ class ClassificationEngine:
             "test_instance": test_instance,
             "use_laplace": use_laplace,
             "class_priors": {str(k): round(v, 4) for k, v in class_priors.items()},
+            "likelihood_table": likelihood_table,
             "katex_steps": katex_steps,
             "posterior_scores": {str(k): round(v, 6) for k, v in posterior_scores.items()},
             "normalized_posteriors": normalized_posteriors,
             "predicted_class": predicted_class
         }
+
