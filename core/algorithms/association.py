@@ -31,8 +31,18 @@ class AprioriEngine:
     """
 
     @staticmethod
+    def _vector_product(v_s, v_t):
+        """Representation-vector product (x) per slide: z_k = min(s_k, t_k).
+
+        v(S (union) T) = v(S) (x) v(T); the 1-count of the result is the joined
+        itemset's support (SPV(v(S)) = SP(S)).
+        """
+        return [min(a, b) for a, b in zip(v_s, v_t)]
+
+    @staticmethod
     def run_apriori(transactions, min_supp_pct=50.0, min_conf_pct=70.0,
-                    max_len=None, min_lift=0.0, target_mode='all'):
+                    max_len=None, min_lift=0.0, target_mode='all',
+                    analysis_mode='class'):
         """
         transactions: list of lists or dicts [{'tid': 'T1', 'items': ['A', 'B', 'E']}, ...]
         min_supp_pct: float (e.g. 50.0%)
@@ -42,7 +52,36 @@ class AprioriEngine:
         target_mode: 'all' | 'attrition' | 'yes' — filter rules by consequent:
             'all' keeps every rule; 'attrition' keeps rules whose consequent
             contains an Attrition= token; 'yes' keeps only consequent == [Attrition=Yes].
+        analysis_mode: 'class' | 'segment'.
+            'class' (default): mine the full database; support/confidence/lift are
+                measured over all records (faithful to the slide's SP=|rho(S)|/|O|).
+            'segment': restrict the database to records matching target_mode
+                (yes -> Attrition=Yes rows) and drop the Attrition tokens, so mining
+                describes the common traits WITHIN that segment. target_mode no
+                longer filters rules (nothing left to target).
         """
+        # Segment mode: keep only records in the chosen class, strip the class
+        # tokens (constant within the segment, so noise), and disable the rule-
+        # consequent filter. Everything downstream then runs on this sub-database.
+        if analysis_mode == 'segment':
+            def _in_segment(item_set):
+                if target_mode == 'yes':
+                    return 'Attrition=Yes' in item_set
+                if target_mode == 'attrition':
+                    return any(i.startswith('Attrition=') for i in item_set)
+                return True
+
+            reduced = []
+            for i, tx in enumerate(transactions):
+                items = set(tx.get('items', []))
+                if _in_segment(items):
+                    kept = [i2 for i2 in items if not i2.startswith('Attrition=')]
+                    reduced.append({'tid': tx.get('tid', f"T{i+1}"), 'items': kept})
+            transactions = reduced
+            target_mode = 'all'
+            if not transactions:
+                raise ValueError("Không có nhân sự nào khớp phân khúc đã chọn.")
+
         # Parse transaction database
         tid_list = []
         raw_tx_items = []
@@ -67,6 +106,9 @@ class AprioriEngine:
 
         itemset_steps = []
         frequent_itemsets = {} # map frozenset -> support count
+        # v(X) representation-vector for every FREQUENT itemset, keyed by frozenset.
+        # Reused so k>=2 support comes from the (x) product, not a re-scan.
+        itemset_vectors = {}
 
         # Level k = 1
         c1 = [frozenset([item]) for item in sorted_all_items]
@@ -87,6 +129,7 @@ class AprioriEngine:
             if is_freq:
                 f1[itemset] = supp_cnt
                 frequent_itemsets[itemset] = supp_cnt
+                itemset_vectors[itemset] = bitvectors[item]
 
         itemset_steps.append({
             "k": 1,
@@ -99,13 +142,26 @@ class AprioriEngine:
 
         while current_f and (max_len is None or k <= max_len):
             prev_fsets = list(current_f.keys())
-            # Candidate generation C_k by joining F_{k-1}
-            candidate_ck = set()
+            prev_set = current_f  # membership test for the prune step
+            # Buoc ket hop (join): C_k = F_{k-1} join F_{k-1}. Remember one parent
+            # pair per candidate so its representation vector can be built via (x).
+            candidate_parents = {}
             for i in range(len(prev_fsets)):
                 for j in range(i + 1, len(prev_fsets)):
                     union_set = prev_fsets[i].union(prev_fsets[j])
-                    if len(union_set) == k:
-                        candidate_ck.add(union_set)
+                    if len(union_set) == k and union_set not in candidate_parents:
+                        candidate_parents[union_set] = (prev_fsets[i], prev_fsets[j])
+
+            # Buoc rut gon (prune): drop any candidate having a (k-1)-subset that
+            # is not frequent — it cannot be part of a frequent k-itemset.
+            candidate_ck = set()
+            for c_set in candidate_parents:
+                subsets_ok = all(
+                    frozenset(sub) in prev_set
+                    for sub in _combinations(sorted(c_set), k - 1)
+                )
+                if subsets_ok:
+                    candidate_ck.add(c_set)
 
             if not candidate_ck:
                 break
@@ -114,8 +170,12 @@ class AprioriEngine:
             next_f = {}
 
             for c_set in sorted(list(candidate_ck), key=lambda x: sorted(list(x))):
-                # Count support by checking transactions
-                supp_cnt = sum(1 for tx in raw_tx_items if c_set.issubset(tx))
+                # Support via representation-vector product (x): v(c) = v(p1) (x) v(p2),
+                # supp = number of 1s in v(c)  (SPV(v(S)) = SP(S)).
+                p1, p2 = candidate_parents[c_set]
+                c_vec = AprioriEngine._vector_product(itemset_vectors[p1],
+                                                      itemset_vectors[p2])
+                supp_cnt = sum(c_vec)
                 supp_pct = (supp_cnt / n_tx) * 100.0
                 is_freq = supp_cnt >= min_supp_count
 
@@ -129,6 +189,7 @@ class AprioriEngine:
                 if is_freq:
                     next_f[c_set] = supp_cnt
                     frequent_itemsets[c_set] = supp_cnt
+                    itemset_vectors[c_set] = c_vec
 
             itemset_steps.append({
                 "k": k,
@@ -187,6 +248,20 @@ class AprioriEngine:
 
         valid_rules = [r for r in valid_rules if _match_target(r)]
 
+        # 3. Maximal frequent itemsets (tap pho bien toi dai — slide 18):
+        # M is maximal if no other frequent itemset is a proper superset of it.
+        all_fsets = list(frequent_itemsets.keys())
+        maximal_itemsets = []
+        for s in all_fsets:
+            if not any(s < other for other in all_fsets):
+                cnt = frequent_itemsets[s]
+                maximal_itemsets.append({
+                    "itemset": sorted(list(s)),
+                    "support_count": cnt,
+                    "support_pct": round((cnt / n_tx) * 100.0, 2),
+                })
+        maximal_itemsets.sort(key=lambda m: (len(m["itemset"]), m["itemset"]))
+
         return {
             "num_transactions": n_tx,
             "min_supp_pct": min_supp_pct,
@@ -194,6 +269,7 @@ class AprioriEngine:
             "all_items": sorted_all_items,
             "bitvectors": {item: bv for item, bv in bitvectors.items()},
             "itemset_steps": itemset_steps,
+            "maximal_itemsets": maximal_itemsets,
             "generated_rules": generated_rules,
             "valid_rules": valid_rules
         }

@@ -16,7 +16,8 @@ CURATED_COLUMNS = [
 # Fixed-threshold semantic bins for known numeric columns.
 # Each rule: (label, low_inclusive_or_None, high_inclusive_or_None).
 BIN_RULES = {
-    "Age": [("Young", None, 29), ("Middle", 30, 50), ("Senior", 51, None)],
+    "Age": [("Young (≤29)", None, 29), ("Middle (30–50)", 30, 50),
+            ("Senior (≥51)", 51, None)],
     "DistanceFromHome": [("Near", None, 5), ("Medium", 6, 15), ("Far", 16, None)],
     "TotalWorkingYears": [("Junior", None, 4), ("Mid", 5, 15), ("Senior", 16, None)],
     "YearsAtCompany": [("New", None, 2), ("Established", 3, 10), ("Veteran", 11, None)],
@@ -24,9 +25,41 @@ BIN_RULES = {
 # Columns binned by quantile (equal-frequency) with Low/Medium/High labels.
 QCUT_LABELS = ["Low", "Medium", "High"]
 QCUT_COLUMNS = {"MonthlyIncome"}
-# Numeric columns with <= this many distinct values stay categorical (ordinals
-# like JobSatisfaction/WorkLifeBalance read better as Col=3 than as bins).
+# Numeric columns with <= this many distinct values stay categorical.
 ORDINAL_MAX = 6
+
+# Human-readable labels for the IBM HR ordinal codes, so tokens read as
+# WorkLifeBalance=Best instead of WorkLifeBalance=4. Unmapped codes fall back to
+# the raw number; columns not listed here keep their numeric value unchanged.
+_SATISFACTION = {1: "Low", 2: "Medium", 3: "High", 4: "Very High"}
+ORDINAL_LABELS = {
+    "Education": {1: "Below College", 2: "College", 3: "Bachelor",
+                  4: "Master", 5: "Doctor"},
+    "EnvironmentSatisfaction": _SATISFACTION,
+    "JobInvolvement": _SATISFACTION,
+    "JobSatisfaction": _SATISFACTION,
+    "RelationshipSatisfaction": _SATISFACTION,
+    "PerformanceRating": {1: "Low", 2: "Good", 3: "Excellent", 4: "Outstanding"},
+    "WorkLifeBalance": {1: "Bad", 2: "Good", 3: "Better", 4: "Best"},
+}
+
+
+def _ordinal_label_tokens(numeric, col):
+    """Map a known HR ordinal column's integer codes to readable labels.
+
+    Non-integer or unmapped values degrade to their raw string, so a stray float
+    never raises and an unexpected code still shows.
+    """
+    mapping = ORDINAL_LABELS[col]
+
+    def lab(v):
+        if pd.isna(v):
+            return pd.NA
+        if float(v).is_integer():
+            return mapping.get(int(v), str(int(v)))
+        return str(v)
+
+    return numeric.apply(lab).radd(f"{col}=")
 
 
 def _label_by_rules(value, rules):
@@ -90,11 +123,14 @@ def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
             else:
                 tokens_per_col[col], bins_report[col] = toks, labels
         elif numeric.nunique(dropna=True) <= ORDINAL_MAX:   # ordinal -> categorical
-            try:
-                tokens_per_col[col] = _cat_tokens(numeric.astype("Int64"), col)
-            except (TypeError, ValueError):
-                # fractional ordinal-like column -> keep original values as-is
-                tokens_per_col[col] = _cat_tokens(series, col)
+            if col in ORDINAL_LABELS:                       # readable HR labels
+                tokens_per_col[col] = _ordinal_label_tokens(numeric, col)
+            else:
+                try:
+                    tokens_per_col[col] = _cat_tokens(numeric.astype("Int64"), col)
+                except (TypeError, ValueError):
+                    # fractional ordinal-like column -> keep original values as-is
+                    tokens_per_col[col] = _cat_tokens(series, col)
         else:                                      # generic numeric -> quantile
             toks, labels = _qcut_tokens(numeric, col, n_bins)
             if toks is None:

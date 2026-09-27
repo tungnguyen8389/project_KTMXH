@@ -174,10 +174,10 @@ class TransactionEncoderTest(TestCase):
         # off-by-one silently mislabels employees.
         tx, _ = encode_transactions(self._hr_df())
         items_by_tid = {t["tid"]: set(t["items"]) for t in tx}
-        self.assertIn("Age=Young", items_by_tid["T1"])    # 25
-        self.assertIn("Age=Middle", items_by_tid["T3"])   # 30 boundary
-        self.assertIn("Age=Middle", items_by_tid["T5"])   # 50 boundary
-        self.assertIn("Age=Senior", items_by_tid["T6"])   # 51
+        self.assertIn("Age=Young (≤29)", items_by_tid["T1"])     # 25
+        self.assertIn("Age=Middle (30–50)", items_by_tid["T3"])  # 30 boundary
+        self.assertIn("Age=Middle (30–50)", items_by_tid["T5"])  # 50 boundary
+        self.assertIn("Age=Senior (≥51)", items_by_tid["T6"])    # 51
 
     def test_string_numeric_column_is_binned_not_one_bucket(self):
         # WHY: JSONField can store numbers as strings; without coercion every
@@ -209,14 +209,25 @@ class TransactionEncoderTest(TestCase):
             encode_transactions(df)
 
     def test_low_cardinality_numeric_stays_categorical(self):
-        # WHY: ordinals like JobSatisfaction (1..4) must read as JobSatisfaction=3,
-        # not be blurred into Low/Medium/High quantile bins.
+        # WHY: ordinals like JobSatisfaction (1..4) must read as their human HR
+        # labels (JobSatisfaction=High), not raw codes and not Low/Medium/High
+        # quantile bins that blur the distinct levels.
         df = pd.DataFrame([{"JobSatisfaction": v, "OverTime": "Yes", "Attrition": "No"}
                            for v in [1, 2, 3, 4, 1, 2, 3, 4]])
         tx, _ = encode_transactions(df)
         toks = {it for t in tx for it in t["items"] if it.startswith("JobSatisfaction=")}
-        self.assertEqual(toks, {"JobSatisfaction=1", "JobSatisfaction=2",
-                                "JobSatisfaction=3", "JobSatisfaction=4"})
+        self.assertEqual(toks, {"JobSatisfaction=Low", "JobSatisfaction=Medium",
+                                "JobSatisfaction=High", "JobSatisfaction=Very High"})
+
+    def test_worklifebalance_codes_map_to_hr_labels(self):
+        # WHY: viewers cannot read WorkLifeBalance=4; the IBM HR code must surface
+        # as its meaning (Best) in every token, table and rule.
+        df = pd.DataFrame([{"WorkLifeBalance": v, "OverTime": "Yes", "Attrition": "No"}
+                           for v in [1, 2, 3, 4]])
+        tx, _ = encode_transactions(df)
+        toks = {it for t in tx for it in t["items"] if it.startswith("WorkLifeBalance=")}
+        self.assertEqual(toks, {"WorkLifeBalance=Bad", "WorkLifeBalance=Good",
+                                "WorkLifeBalance=Better", "WorkLifeBalance=Best"})
 
     def test_skewed_numeric_does_not_crash(self):
         # WHY: a clustered high-cardinality numeric can yield duplicate quantile
@@ -308,3 +319,94 @@ class RuleFilterTest(TestCase):
         # WHY: existing callers pass no new args; defaults must not filter.
         res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50)
         self.assertGreater(len(res["valid_rules"]), 0)
+
+    def test_segment_mode_restricts_to_class_and_drops_attrition(self):
+        # WHY: segment analysis must mine ONLY the leavers and remove the constant
+        # Attrition token, so support is measured over the segment and no frequent
+        # itemset re-introduces the class label as noise.
+        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50,
+                                        target_mode="yes", analysis_mode="segment")
+        self.assertEqual(res["num_transactions"], 2)  # only the 2 Attrition=Yes rows
+        freq_tokens = {it for step in res["itemset_steps"]
+                       for f in step["frequent_F_k"] for it in f["itemset"]}
+        self.assertFalse(any(t.startswith("Attrition=") for t in freq_tokens))
+        self.assertIn("OverTime=Yes", freq_tokens)
+
+    def test_class_mode_keeps_full_database(self):
+        # WHY: the default class mode must not shrink the database — support stays
+        # faithful to |O| over all records (slide definition).
+        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50,
+                                        target_mode="yes", analysis_mode="class")
+        self.assertEqual(res["num_transactions"], 4)
+
+
+class AprioriTheoryTest(TestCase):
+    """Faithfulness to the lecture slides (Mai Xuan Hung, Tap pho bien & Luat ket hop)."""
+
+    def _slide_tx(self):
+        # Exact context (O,I,R) from the slide worked example, minsupp=0.4.
+        return [
+            {"tid": "o1", "items": ["i1", "i2", "i3"]},
+            {"tid": "o2", "items": ["i2", "i3", "i4"]},
+            {"tid": "o3", "items": ["i2", "i3", "i4"]},
+            {"tid": "o4", "items": ["i1", "i2", "i3"]},
+            {"tid": "o5", "items": ["i3", "i4"]},
+        ]
+
+    def _all_frequent(self, res):
+        sets = set()
+        for step in res["itemset_steps"]:
+            for f in step["frequent_F_k"]:
+                sets.add(frozenset(f["itemset"]))
+        return sets
+
+    def test_frequent_itemsets_match_slide(self):
+        # WHY: the whole FS(O,I,R,minsupp=0.4) is printed on slide 35; if mining
+        # drifts, the produced frequent family stops matching the taught result.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        expected = {
+            frozenset(s) for s in [
+                ["i1"], ["i2"], ["i3"], ["i4"],
+                ["i1", "i2"], ["i1", "i3"], ["i2", "i3"], ["i2", "i4"], ["i3", "i4"],
+                ["i1", "i2", "i3"], ["i2", "i3", "i4"],
+            ]
+        }
+        self.assertEqual(self._all_frequent(res), expected)
+
+    def test_maximal_itemsets_match_slide(self):
+        # WHY: slide 18 defines maximal frequent itemsets and states the answer is
+        # exactly {i1,i2,i3},{i2,i3,i4}; the exercises require this output.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        maximal = {frozenset(m["itemset"]) for m in res["maximal_itemsets"]}
+        self.assertEqual(maximal, {frozenset(["i1", "i2", "i3"]),
+                                   frozenset(["i2", "i3", "i4"])})
+
+    def test_candidate_pruning_drops_infrequent_subset_supersets(self):
+        # WHY: slide 14 "Buoc rut gon" — a k-candidate whose (k-1) subset is
+        # infrequent must never be generated. {i1,i4} is infrequent (SP=0), so no
+        # 3-candidate may contain both i1 and i4.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        for step in res["itemset_steps"]:
+            if step["k"] < 3:
+                continue
+            for cand in step["candidates_C_k"]:
+                its = set(cand["itemset"])
+                self.assertFalse({"i1", "i4"}.issubset(its),
+                                 f"unpruned candidate {cand['itemset']}")
+
+    def test_vector_product_is_component_min(self):
+        # WHY: slide 26 defines the representation-vector product z_k=min(s_k,t_k);
+        # support of a joined itemset is derived from it, not a re-scan.
+        prod = AprioriEngine._vector_product([1, 0, 1, 1, 0], [1, 1, 1, 0, 1])
+        self.assertEqual(prod, [1, 0, 1, 0, 0])
+
+    def test_support_of_join_equals_vector_product_sum(self):
+        # WHY: SPV(v(S)) = SP(S); the k>=2 support count must equal the number of
+        # 1s in v(parent1) (x) v(parent2), matching the slide's SP({i2,i3})=0.8.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        by_set = {}
+        for step in res["itemset_steps"]:
+            for c in step["candidates_C_k"]:
+                by_set[frozenset(c["itemset"])] = c["support_count"]
+        self.assertEqual(by_set[frozenset(["i2", "i3"])], 4)  # 4/5 = 0.8
+        self.assertEqual(by_set[frozenset(["i3", "i4"])], 3)  # 3/5 = 0.6
