@@ -1,32 +1,58 @@
 from django.db import models
 
-class Dataset(models.Model):
-    """
-    [TV1] Model managed by TV1 to store seed datasets and user custom datasets
-    for each algorithm group.
-    """
-    CATEGORY_CHOICES = [
-        ('PREPROCESSING', 'Tiền xử lý (Min-Max, Z-score)'),
-        ('ROUGH_SET', 'Tập thô & Rút gọn thuộc tính'),
-        ('KMEANS', 'Phân cụm K-Means'),
-        ('APRIORI', 'Luật kết hợp Apriori'),
-        ('CLASSIFICATION', 'Phân lớp (ID3 & Naive Bayes)'),
-    ]
 
-    name = models.CharField(max_length=250, verbose_name="Tên bộ dữ liệu")
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, verbose_name="Phân loại thuật toán")
-    description = models.TextField(blank=True, verbose_name="Mô tả chi tiết")
-    data_json = models.JSONField(verbose_name="Nội dung dữ liệu (JSON format)")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class Employee(models.Model):
+    """
+    One IBM HR Employee Attrition record (already cleaned by data_cleaning).
+    This relational table is the single source of truth for every algorithm
+    tab; it is seeded from data/init.sql on first run (see core/seeding.py).
+
+    Fields carry defaults so partial rows (tests, admin) can be created without
+    supplying all 31 columns; the SQL seed always provides full values.
+    """
+    # Categorical / text columns.
+    Attrition = models.CharField(max_length=100, default="", verbose_name="Nghỉ việc")
+    BusinessTravel = models.CharField(max_length=100, default="")
+    Department = models.CharField(max_length=100, default="")
+    EducationField = models.CharField(max_length=100, default="")
+    Gender = models.CharField(max_length=100, default="")
+    JobRole = models.CharField(max_length=100, default="")
+    MaritalStatus = models.CharField(max_length=100, default="")
+    OverTime = models.CharField(max_length=100, default="")
+
+    # Integer columns.
+    Age = models.IntegerField(default=0)
+    DailyRate = models.IntegerField(default=0)
+    DistanceFromHome = models.IntegerField(default=0)
+    Education = models.IntegerField(default=0)
+    EnvironmentSatisfaction = models.IntegerField(default=0)
+    HourlyRate = models.IntegerField(default=0)
+    JobInvolvement = models.IntegerField(default=0)
+    JobLevel = models.IntegerField(default=0)
+    JobSatisfaction = models.IntegerField(default=0)
+    MonthlyIncome = models.IntegerField(default=0)
+    MonthlyRate = models.IntegerField(default=0)
+    PercentSalaryHike = models.IntegerField(default=0)
+    PerformanceRating = models.IntegerField(default=0)
+    RelationshipSatisfaction = models.IntegerField(default=0)
+    WorkLifeBalance = models.IntegerField(default=0)
+    YearsAtCompany = models.IntegerField(default=0)
+
+    # Float columns (median-filled / IQR-capped during cleaning may be fractional).
+    NumCompaniesWorked = models.FloatField(default=0.0)
+    StockOptionLevel = models.FloatField(default=0.0)
+    TotalWorkingYears = models.FloatField(default=0.0)
+    TrainingTimesLastYear = models.FloatField(default=0.0)
+    YearsInCurrentRole = models.FloatField(default=0.0)
+    YearsSinceLastPromotion = models.FloatField(default=0.0)
+    YearsWithCurrManager = models.FloatField(default=0.0)
 
     class Meta:
-        verbose_name = "Bộ dữ liệu mẫu"
-        verbose_name_plural = "Danh sách bộ dữ liệu mẫu"
-        ordering = ['category', 'name']
+        verbose_name = "Nhân viên (HR Attrition)"
+        verbose_name_plural = "Bộ dữ liệu nhân viên (HR Attrition)"
 
     def __str__(self):
-        return f"[{self.get_category_display()}] - {self.name}"
+        return f"Employee #{self.pk} - Attrition={self.Attrition}"
 
 
 class ExecutionHistory(models.Model):

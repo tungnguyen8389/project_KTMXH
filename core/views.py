@@ -1,39 +1,44 @@
-import json
+import pandas as pd
 from django.views.generic import TemplateView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Dataset
+from .models import Employee
+from .seeding import hr_records
 from .algorithms.preprocessing import PreprocessingEngine
 from .algorithms.rough_set import RoughSetEngine
 from .algorithms.reduct import ReductEngine
 from .algorithms.kmeans import KMeansEngine
 from .algorithms.association import AprioriEngine
 from .algorithms.classification import ClassificationEngine
+from .transaction_encoder import encode_transactions
 
 
 class IndexView(TemplateView):
     """[TV4] Render main interactive visualizer workspace dashboard"""
     template_name = 'index.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['datasets'] = Dataset.objects.all()
-        return context
-
 
 class DatasetListAPIView(APIView):
-    """[TV3] REST API endpoint returning pre-loaded seed datasets"""
+    """[TV3] Return the seeded HR dataset as a single dataset entry.
+
+    Kept as a list of one so the frontend contract (list[0].data_json) is
+    unchanged after switching the data source from a JSON blob to the
+    relational Employee table.
+    """
     def get(self, request):
-        datasets = Dataset.objects.all()
+        records = hr_records()
+        if not records:
+            return Response([], status=status.HTTP_200_OK)
         data = [{
-            'id': ds.id,
-            'name': ds.name,
-            'category': ds.category,
-            'description': ds.description,
-            'data_json': ds.data_json
-        } for ds in datasets]
+            'id': 1,
+            'name': 'IBM HR Employee Attrition',
+            'category': 'CLASSIFICATION',
+            'description': f'Bộ dữ liệu nhân sự: {len(records)} nhân viên, '
+                           f'{len(records[0])} thuộc tính.',
+            'data_json': records,
+        }]
         return Response(data, status=status.HTTP_200_OK)
 
 
@@ -124,12 +129,35 @@ class AprioriAPIView(APIView):
             transactions = payload.get('transactions', [])
             min_supp_pct = float(payload.get('min_supp', 50.0))
             min_conf_pct = float(payload.get('min_conf', 70.0))
+            min_lift = float(payload.get('min_lift', 0.0))
+            max_len_raw = payload.get('max_len', None)
+            max_len = int(max_len_raw) if max_len_raw not in (None, '', 0, '0') else None
+            target_mode = payload.get('target_mode', 'all')
+            analysis_mode = payload.get('analysis_mode', 'class')
 
             if not transactions:
                 return Response({'error': 'Danh sách giao dịch transactions không được rỗng!'}, status=status.HTTP_400_BAD_REQUEST)
 
-            result = AprioriEngine.run_apriori(transactions, min_supp_pct, min_conf_pct)
+            result = AprioriEngine.run_apriori(
+                transactions, min_supp_pct, min_conf_pct,
+                max_len=max_len, min_lift=min_lift, target_mode=target_mode,
+                analysis_mode=analysis_mode)
             return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EncodeTransactionsAPIView(APIView):
+    """[TV3] Encode the stored HR dataset into Apriori transactions (GET)."""
+    def get(self, request):
+        if not Employee.objects.exists():
+            return Response({'error': 'Chưa có dữ liệu nhân sự trong hệ thống.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            df = pd.DataFrame(hr_records())
+            transactions, report = encode_transactions(df)
+            return Response({'transactions': transactions, 'report': report},
+                            status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

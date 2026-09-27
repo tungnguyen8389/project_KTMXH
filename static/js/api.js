@@ -23,6 +23,23 @@ const API = {
         }
     },
 
+    async get(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}/`, {
+                method: 'GET',
+                headers: { 'X-CSRFToken': this.getCsrfToken() }
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Lỗi khi gọi API backend!');
+            }
+            return result;
+        } catch (err) {
+            alert(`Lỗi API (${endpoint}): ${err.message}`);
+            throw err;
+        }
+    },
+
     getCsrfToken() {
         const name = 'csrftoken';
         let cookieValue = null;
@@ -47,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageHeading = document.getElementById('page-heading');
 
     const titles = {
-        'tab-preprocessing': '1. Tiền xử lý Dữ liệu (Min-Max & Z-Score)',
         'tab-roughset': '2. Tập thô & Rút gọn Thuộc tính (IND, Upper/Lower, Discriminiability Matrix)',
         'tab-kmeans': '3. Phân cụm K-Means (Euclidean, Distance D_t, Partition U_t)',
         'tab-apriori': '4. Luật kết hợp Apriori (Bitvector, Itemsets C_k/F_k, Rules)',

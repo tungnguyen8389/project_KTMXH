@@ -1,6 +1,6 @@
 <!-- TAB 4: APRIORI ASSOCIATION RULES [TV2 + TV4] -->
-<section id="tab-apriori" class="tab-panel">
-    <div class="panel-grid">
+<section id="tab-apriori" class="tab-panel active">
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
         <div class="card">
             <div class="card-header">
                 <h3>Tham Số Apriori</h3>
@@ -9,22 +9,18 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Min Support (%):</label>
-                        <input type="number" id="ap-minsupp" class="form-control" value="50.0" step="5">
+                        <input type="number" id="ap-minsupp" class="form-control" value="5" step="1">
                     </div>
                     <div class="form-group">
                         <label>Min Confidence (%):</label>
-                        <input type="number" id="ap-minconf" class="form-control" value="70.0" step="5">
+                        <input type="number" id="ap-minconf" class="form-control" value="30" step="5">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Cơ sở dữ liệu Giao dịch (JSON):</label>
-                    <textarea id="ap-json-input" class="form-control code-editor" rows="7">[
-  {"tid": "T1", "items": ["Sữa", "Tã", "Bia"]},
-  {"tid": "T2", "items": ["Sữa", "Tã", "Bánh mì"]},
-  {"tid": "T3", "items": ["Sữa", "Bia", "Bánh mì"]},
-  {"tid": "T4", "items": ["Tã", "Bia", "Bánh mì"]},
-  {"tid": "T5", "items": ["Sữa", "Tã", "Bia", "Bánh mì"]}
-]</textarea>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Min Lift:</label>
+                        <input type="number" id="ap-minlift" class="form-control" value="1.2" step="0.1">
+                    </div>
                 </div>
                 <button id="btn-run-apriori" class="btn btn-primary btn-block">Khai Thác Tập Phổ Biến & Luật</button>
             </div>
@@ -32,15 +28,23 @@
 
         <div class="card">
             <div class="card-header">
-                <h3>Tập Phổ Biến $F_k$ & Thẻ Luật Kết Hợp</h3>
+                <h3>Tập Phổ Biến F_k & Thẻ Luật Kết Hợp</h3>
             </div>
-            <div class="card-body">
-                <div id="ap-bitvectors-box" class="table-responsive mb-3"></div>
-                <div id="ap-itemsets-box">
-                    <p class="placeholder-text">Các tập ứng viên $C_k$ và phổ biến $F_k$ sẽ được tạo tại đây.</p>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:2rem;">
+                <!-- 1. Binary table (row per transaction) -->
+                <div id="ap-bitvectors-box" class="table-responsive"></div>
+                <!-- 2. Rule cards satisfying min confidence -->
+                <div>
+                    <h4 class="mb-2">Các Luật Kết Hợp Thỏa Mãn MinConf</h4>
+                    <div id="ap-rules-cards" class="rules-grid scroll-grid"></div>
                 </div>
-                <h4 class="mt-4">Các Luật Kết Hợp Thỏa Mẫn MinConf</h4>
-                <div id="ap-rules-cards" class="rules-grid"></div>
+                <!-- 3. Maximal frequent itemsets (compact summary, before the
+                     full F_k grid which can hold hundreds of cards) -->
+                <div id="ap-maximal-box"></div>
+                <!-- 4. Frequent-itemset cards -->
+                <div id="ap-itemsets-box">
+                    <p class="placeholder-text">Các tập phổ biến $F_k$ sẽ được tạo tại đây.</p>
+                </div>
             </div>
         </div>
     </div>
