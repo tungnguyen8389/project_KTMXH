@@ -93,16 +93,10 @@ def _cat_tokens(series, col):
     return series.astype("string").radd(f"{col}=")
 
 
-def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
-    columns = columns if columns is not None else CURATED_COLUMNS
+def _tokenize(df, columns, n_bins=3):
+    """Build a Col=Label token Series per requested column (shared by encoders)."""
     used = [c for c in columns if c in df.columns]
-    if len(used) < 2:
-        raise ValueError(
-            "Cần ít nhất 2 cột hợp lệ để khai phá luật kết hợp, "
-            f"nhưng chỉ có {len(used)}."
-        )
-
-    tokens_per_col = {}   # col -> pandas Series of string tokens
+    tokens_per_col = {}
     bins_report = {}
 
     for col in used:
@@ -138,6 +132,18 @@ def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
             else:
                 tokens_per_col[col], bins_report[col] = toks, labels
 
+    return tokens_per_col, used, bins_report
+
+
+def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
+    columns = columns if columns is not None else CURATED_COLUMNS
+    tokens_per_col, used, bins_report = _tokenize(df, columns, n_bins)
+    if len(used) < 2:
+        raise ValueError(
+            "Cần ít nhất 2 cột hợp lệ để khai phá luật kết hợp, "
+            f"nhưng chỉ có {len(used)}."
+        )
+
     transactions = []
     vocab = set()
     for i in range(len(df)):
@@ -156,3 +162,53 @@ def encode_transactions(df, columns=None, target="Attrition", n_bins=3):
         "num_transactions": len(transactions),
     }
     return transactions, report
+
+
+# Full attribute pool the classification prefill exposes to the user.
+# Each record includes every column; the UI preselects DEFAULT_CLASSIFICATION_ATTRS
+# to keep the initial Mermaid tree renderable.
+CLASSIFICATION_COLUMNS = [
+    "OverTime", "MaritalStatus", "JobSatisfaction", "WorkLifeBalance",
+    "BusinessTravel", "JobRole", "Department", "Gender", "EducationField",
+    "Age", "MonthlyIncome", "YearsAtCompany", "TotalWorkingYears",
+]
+DEFAULT_CLASSIFICATION_ATTRS = ["OverTime", "MaritalStatus", "JobSatisfaction"]
+
+
+def encode_records(df, columns=None, target="Attrition", n_bins=3):
+    """Return HR rows as classification-ready dicts {col: label}.
+
+    Reuses the Apriori binning so numeric columns (Age, MonthlyIncome…) show as
+    readable categorical labels — required because ID3/Naive Bayes here expect
+    categorical values.
+    """
+    columns = columns if columns is not None else CLASSIFICATION_COLUMNS
+    feature_cols = [c for c in columns if c != target]
+    tokens_per_col, used_features, bins_report = _tokenize(df, feature_cols, n_bins)
+    if target not in df.columns:
+        raise ValueError(f"Cột nhãn '{target}' không tồn tại trong dữ liệu HR.")
+
+    target_series = df[target].astype("string")
+    records = []
+    for i in range(len(df)):
+        row = {}
+        for col in used_features:
+            tok = tokens_per_col[col].iloc[i]
+            if pd.notna(tok) and not tok.endswith("="):
+                row[col] = str(tok)[len(col) + 1:]  # strip "Col=" prefix
+        tgt = target_series.iloc[i]
+        if pd.isna(tgt):
+            continue
+        row[target] = str(tgt)
+        records.append(row)
+
+    default_selected = [c for c in DEFAULT_CLASSIFICATION_ATTRS if c in used_features]
+    report = {
+        "available_attrs": used_features,
+        "default_selected_attrs": default_selected or used_features[:3],
+        "target_attr": target,
+        "bins": bins_report,
+        "num_records": len(records),
+        "class_distribution": target_series.dropna().value_counts().to_dict(),
+    }
+    return records, report

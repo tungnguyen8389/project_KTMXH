@@ -12,7 +12,7 @@ from .algorithms.reduct import ReductEngine
 from .algorithms.kmeans import KMeansEngine
 from .algorithms.association import AprioriEngine
 from .algorithms.classification import ClassificationEngine
-from .transaction_encoder import encode_transactions
+from .transaction_encoder import encode_transactions, encode_records
 
 
 class IndexView(TemplateView):
@@ -236,6 +236,26 @@ class EncodeTransactionsAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ClassificationDataAPIView(APIView):
+    """[TV3] Prefill classification tab (ID3 / Naive Bayes) from the HR DB.
+
+    Reuses the Apriori binning so numeric columns come back as readable labels.
+    Response shape matches what tab_classification.html needs to fill textarea +
+    condition/target fields directly.
+    """
+    def get(self, request):
+        if not Employee.objects.exists():
+            return Response({'error': 'Chưa có dữ liệu nhân sự trong hệ thống.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            df = pd.DataFrame(hr_records())
+            records, report = encode_records(df)
+            return Response({'data': records, 'report': report},
+                            status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ID3APIView(APIView):
     """[TV3] Dispatcher API for ID3 Decision Tree Construction & Mermaid graph"""
     def post(self, request):
@@ -248,7 +268,8 @@ class ID3APIView(APIView):
             if not data_list or not condition_attrs or not target_attr:
                 return Response({'error': 'Thiếu tham số data, condition_attrs hoặc target_attr!'}, status=status.HTTP_400_BAD_REQUEST)
 
-            result = ClassificationEngine.run_id3(data_list, condition_attrs, target_attr)
+            criterion = payload.get('criterion', 'gain')
+            result = ClassificationEngine.run_id3(data_list, condition_attrs, target_attr, criterion=criterion)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -11,131 +11,145 @@ class ClassificationEngine:
 
     # ------------------ ID3 DECISION TREE ------------------
     @staticmethod
-    def _entropy(p, n):
-        total = p + n
-        if total == 0 or p == 0 or n == 0:
+    def _entropy_from_counts(counts_dict, total):
+        if total <= 0:
             return 0.0
-        p_ratio = p / total
-        n_ratio = n / total
-        return - (p_ratio * math.log2(p_ratio) + n_ratio * math.log2(n_ratio))
+        h = 0.0
+        for v in counts_dict.values():
+            if v > 0:
+                p = v / total
+                h -= p * math.log2(p)
+        return h
 
     @classmethod
-    def run_id3(cls, data_list, condition_attrs, target_attr):
+    def run_id3(cls, data_list, condition_attrs, target_attr, criterion='gain'):
+        """
+        Build ID3 tree using one of two selection criteria from the course slides:
+          - 'gain'    : Information Gain (Slide 40, entropy-based, multi-class).
+          - 'quinlan' : Quinlan unit-vector heuristic (Slide 27, 33); pick attribute producing
+                        the most pure (single-class) child subsets, tie-broken by Information Gain.
+        """
+        if criterion not in ('gain', 'quinlan'):
+            criterion = 'gain'
+
         df = pd.DataFrame(data_list)
-        target_vals = sorted(list(df[target_attr].unique()))
-        
-        # Binary target assumed e.g. Yes/No or Play/Don't Play
-        pos_val = target_vals[0] if len(target_vals) > 0 else "Yes"
-        neg_val = target_vals[1] if len(target_vals) > 1 else "No"
+        classes = sorted(str(c) for c in df[target_attr].unique())
 
         steps = []
         node_counter = [0]
 
+        def counts_of(sub_df):
+            vc = sub_df[target_attr].astype(str).value_counts().to_dict()
+            return {c: int(vc.get(c, 0)) for c in classes}
+
         def build_tree(sub_df, curr_attrs, parent_label="Root"):
             node_counter[0] += 1
             node_id = f"node_{node_counter[0]}"
-
-            p = len(sub_df[sub_df[target_attr] == pos_val])
-            n = len(sub_df[sub_df[target_attr] == neg_val])
             total = len(sub_df)
+            cc = counts_of(sub_df)
 
-            if p == total:
-                return {"id": node_id, "label": f"{pos_val}", "is_leaf": True, "type": "leaf", "count": total}
-            if n == total:
-                return {"id": node_id, "label": f"{neg_val}", "is_leaf": True, "type": "leaf", "count": total}
-            if not curr_attrs:
-                majority = pos_val if p >= n else neg_val
-                return {"id": node_id, "label": f"{majority}", "is_leaf": True, "type": "leaf", "count": total}
+            # Pure node: only one class present.
+            nonzero = [c for c, v in cc.items() if v > 0]
+            if len(nonzero) == 1:
+                return {"id": node_id, "label": nonzero[0], "is_leaf": True, "type": "leaf", "count": total}
+            if not curr_attrs or total == 0:
+                majority = max(cc, key=cc.get) if cc else "?"
+                return {"id": node_id, "label": majority, "is_leaf": True, "type": "leaf", "count": total}
 
-            total_info = cls._entropy(p, n)
+            parent_entropy = cls._entropy_from_counts(cc, total)
 
-            gains = {}
             attr_details = {}
+            scores = {}  # higher = better
 
             for attr in curr_attrs:
-                e_A = 0.0
-                val_counts = sub_df.groupby([attr, target_attr]).size().unstack(fill_value=0)
-                
+                e_A = 0.0       # weighted entropy of children
+                unit_count = 0  # # of pure child subsets (Quinlan)
                 sub_details = []
-                for val, row in val_counts.iterrows():
-                    val_p = row.get(pos_val, 0)
-                    val_n = row.get(neg_val, 0)
-                    val_total = val_p + val_n
-                    val_ent = cls._entropy(val_p, val_n)
+
+                for val, gdf in sub_df.groupby(attr):
+                    val_total = len(gdf)
+                    val_cc = counts_of(gdf)
+                    val_ent = cls._entropy_from_counts(val_cc, val_total)
                     e_A += (val_total / total) * val_ent
+                    if val_total > 0 and max(val_cc.values()) == val_total:
+                        unit_count += 1
                     sub_details.append({
                         "val": str(val),
-                        "p": int(val_p),
-                        "n": int(val_n),
-                        "entropy": round(val_ent, 4)
+                        "counts": val_cc,
+                        "total": val_total,
+                        "entropy": round(val_ent, 4),
                     })
 
-                gain = total_info - e_A
-                gains[attr] = round(gain, 4)
+                gain = parent_entropy - e_A
                 attr_details[attr] = {
                     "expected_entropy_E": round(e_A, 4),
                     "gain": round(gain, 4),
-                    "sub_details": sub_details
+                    "unit_count": unit_count,
+                    "sub_details": sub_details,
                 }
 
-            best_attr = max(gains, key=gains.get)
+                if criterion == 'quinlan':
+                    # Prefer more unit-vector branches; tie-break with Information Gain.
+                    scores[attr] = (unit_count, gain)
+                else:
+                    scores[attr] = (gain,)
+
+            best_attr = max(scores, key=scores.get)
 
             steps.append({
                 "parent_label": parent_label,
                 "node_samples": total,
-                "p_count": p,
-                "n_count": n,
-                "info_p_n": round(total_info, 4),
+                "class_counts": cc,
+                "info": round(parent_entropy, 4),
                 "attr_details": attr_details,
                 "selected_best_attr": best_attr,
-                "max_gain": gains[best_attr]
             })
 
             children = []
             remaining_attrs = [a for a in curr_attrs if a != best_attr]
-
-            for val in sorted(sub_df[best_attr].unique()):
+            for val in sorted(sub_df[best_attr].unique(), key=str):
                 child_df = sub_df[sub_df[best_attr] == val]
                 child_tree = build_tree(child_df, remaining_attrs, parent_label=f"{best_attr}={val}")
-                children.append({
-                    "branch_value": str(val),
-                    "child_node": child_tree
-                })
+                children.append({"branch_value": str(val), "child_node": child_tree})
 
-            return {
-                "id": node_id,
-                "label": best_attr,
-                "is_leaf": False,
-                "children": children
-            }
+            return {"id": node_id, "label": best_attr, "is_leaf": False, "children": children}
 
         tree_structure = build_tree(df, condition_attrs)
 
-        # Generate Mermaid.js graph string (graph TD)
+        # Generate Mermaid.js graph string (graph TD).
+        # Labels from real HR data can contain '&', '"', etc. which crash the
+        # Mermaid parser; escape them as HTML entities inside "..." wrappers.
+        def _esc(s):
+            return (str(s)
+                    .replace("&", "&amp;")
+                    .replace('"', "&quot;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;"))
+
         mermaid_lines = ["graph TD"]
 
         def generate_mermaid(node):
+            label = _esc(node["label"])
             if node["is_leaf"]:
-                mermaid_lines.append(f'    {node["id"]}[["{node["label"]}"]]')
+                mermaid_lines.append(f'    {node["id"]}[["{label}"]]')
             else:
-                mermaid_lines.append(f'    {node["id"]}{{"{node["label"]}"}}')
+                mermaid_lines.append(f'    {node["id"]}{{"{label}"}}')
                 for child_edge in node.get("children", []):
-                    branch_val = child_edge["branch_value"]
+                    branch_val = _esc(child_edge["branch_value"])
                     child_node = child_edge["child_node"]
                     generate_mermaid(child_node)
                     mermaid_lines.append(f'    {node["id"]} -->|"{branch_val}"| {child_node["id"]}')
 
         generate_mermaid(tree_structure)
-        mermaid_graph = "\n".join(mermaid_lines)
 
         return {
             "target_attr": target_attr,
-            "pos_val": pos_val,
-            "neg_val": neg_val,
+            "criterion": criterion,
+            "classes": classes,
             "total_samples": len(df),
             "steps": steps,
             "tree_structure": tree_structure,
-            "mermaid_graph": mermaid_graph
+            "mermaid_graph": "\n".join(mermaid_lines),
         }
 
     # ------------------ NAIVE BAYES ------------------

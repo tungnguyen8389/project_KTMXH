@@ -49,6 +49,16 @@ def seed_employees(force=False):
 
     sql = INIT_SQL_PATH.read_text(encoding="utf-8")
     with connection.cursor() as cursor:
-        cursor.executescript(sql)  # sqlite: runs all INSERT statements at once
+        if hasattr(cursor, "executescript"):
+            cursor.executescript(sql)  # SQLite: runs everything at once.
+        else:
+            # MySQL / Postgres: strip leading '-- ...' comment lines, then split
+            # on ';'. init.sql has no embedded semicolons inside values so a
+            # naive split is safe.
+            body = "\n".join(
+                line for line in sql.splitlines() if not line.lstrip().startswith("--")
+            )
+            for stmt in filter(None, (s.strip() for s in body.split(";"))):
+                cursor.execute(stmt)
 
     return Employee.objects.count()

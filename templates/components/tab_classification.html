@@ -39,6 +39,14 @@
                     <textarea id="nb-test-instance" class="form-control code-editor"
                         rows="3">{"Outlook": "Sunny", "Temp": "Cool", "Humidity": "High", "Wind": "Strong"}</textarea>
                 </div>
+                <div class="form-group">
+                    <label for="id3-criterion">Độ đo chọn thuộc tính (ID3):</label>
+                    <select id="id3-criterion" class="form-control">
+                        <option value="gain" selected>Information Gain (Entropy đa lớp)</option>
+                        <option value="quinlan">Quinlan - số vector đơn vị</option>
+                    </select>
+                </div>
+
                 <div class="form-check mb-3">
                     <input type="checkbox" id="nb-laplace" class="form-check-input">
                     <label for="nb-laplace">Hiệu chỉnh Laplace (Laplace Smoothing)</label>
@@ -48,6 +56,10 @@
                     <button id="btn-run-id3" class="btn btn-primary">Xây Cây ID3 & Gain</button>
                     <button id="btn-run-nb" class="btn btn-secondary">Dự Đoán Naive Bayes</button>
                 </div>
+                <button id="btn-prefill-cl-hr" class="btn btn-outline-primary btn-block mt-2" type="button">
+                    Nạp dữ liệu HR (Attrition) từ DB
+                </button>
+                <div id="cl-prefill-report" class="small text-muted mt-2"></div>
             </div>
         </div>
 
