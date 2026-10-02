@@ -1,0 +1,8 @@
+# Yêu cầu Python >= 3.12 (Django 6.x)
+Django>=6.1,<6.2
+djangorestframework>=3.18,<4
+pandas>=3.0,<4
+numpy>=2.0,<3
+
+# Tùy chọn — chỉ cần khi chạy với MySQL (DB_ENGINE=mysql)
+# PyMySQL>=1.1
