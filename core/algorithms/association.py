@@ -40,48 +40,57 @@ class AprioriEngine:
         return [min(a, b) for a, b in zip(v_s, v_t)]
 
     @staticmethod
+    def normalize_transactions(data):
+        """Coerce user-supplied JSON into [{'tid': ..., 'items': [...]}, ...].
+
+        Accepted shapes (so slide examples can be pasted as-is):
+          - [{"tid": "o1", "items": ["i1", "i2"]}, ...]   (native)
+          - [["i1", "i2"], ["i2", "i3"], ...]               (list of lists)
+          - {"o1": ["i1", "i2"], "o2": [...]}                (tid -> items map)
+          - [{"tid": "o1", "item": "i1"}, ...]              (pair rows, slide 8)
+          - [{"id": "o1", "i1": 1, "i2": 0, ...}, ...]      (binary matrix, slide 12)
+        """
+        if isinstance(data, dict):
+            return [{"tid": str(tid), "items": list(items)} for tid, items in data.items()]
+        if not isinstance(data, list):
+            raise ValueError("Dữ liệu giao dịch phải là danh sách hoặc object JSON.")
+
+        result = []
+        pair_index = {}
+        for i, row in enumerate(data):
+            if isinstance(row, (list, tuple)):
+                result.append({"tid": f"T{i+1}", "items": list(row)})
+            elif isinstance(row, dict) and "items" in row:
+                result.append({"tid": str(row.get("tid", row.get("id", f"T{i+1}"))),
+                               "items": list(row["items"])})
+            elif isinstance(row, dict) and "item" in row:
+                tid = str(row.get("tid", row.get("id")))
+                if tid not in pair_index:
+                    pair_index[tid] = len(result)
+                    result.append({"tid": tid, "items": []})
+                result[pair_index[tid]]["items"].append(row["item"])
+            elif isinstance(row, dict):
+                tid = str(row.get("tid", row.get("id", f"T{i+1}")))
+                items = [k for k, v in row.items()
+                         if k not in ("tid", "id") and v in (1, True, "1")]
+                result.append({"tid": tid, "items": items})
+            else:
+                raise ValueError(f"Giao dịch thứ {i+1} không đúng định dạng.")
+        return result
+
+    @staticmethod
     def run_apriori(transactions, min_supp_pct=50.0, min_conf_pct=70.0,
-                    max_len=None, min_lift=0.0, target_mode='all',
-                    analysis_mode='class'):
+                    max_len=None, min_lift=0.0, include_vectors=False):
         """
         transactions: list of lists or dicts [{'tid': 'T1', 'items': ['A', 'B', 'E']}, ...]
         min_supp_pct: float (e.g. 50.0%)
         min_conf_pct: float (e.g. 70.0%)
         max_len: int or None — cap itemset size k (rule-length control); None = no cap.
         min_lift: float — keep only rules with lift >= this (noise control).
-        target_mode: 'all' | 'attrition' | 'yes' — filter rules by consequent:
-            'all' keeps every rule; 'attrition' keeps rules whose consequent
-            contains an Attrition= token; 'yes' keeps only consequent == [Attrition=Yes].
-        analysis_mode: 'class' | 'segment'.
-            'class' (default): mine the full database; support/confidence/lift are
-                measured over all records (faithful to the slide's SP=|rho(S)|/|O|).
-            'segment': restrict the database to records matching target_mode
-                (yes -> Attrition=Yes rows) and drop the Attrition tokens, so mining
-                describes the common traits WITHIN that segment. target_mode no
-                longer filters rules (nothing left to target).
+        include_vectors: bool — attach v(X) to every candidate as a bit string
+            ("10010"), compact enough for the full HR dataset.
         """
-        # Segment mode: keep only records in the chosen class, strip the class
-        # tokens (constant within the segment, so noise), and disable the rule-
-        # consequent filter. Everything downstream then runs on this sub-database.
-        if analysis_mode == 'segment':
-            def _in_segment(item_set):
-                if target_mode == 'yes':
-                    return 'Attrition=Yes' in item_set
-                if target_mode == 'attrition':
-                    return any(i.startswith('Attrition=') for i in item_set)
-                return True
-
-            reduced = []
-            for i, tx in enumerate(transactions):
-                items = set(tx.get('items', []))
-                if _in_segment(items):
-                    kept = [i2 for i2 in items if not i2.startswith('Attrition=')]
-                    reduced.append({'tid': tx.get('tid', f"T{i+1}"), 'items': kept})
-            transactions = reduced
-            target_mode = 'all'
-            if not transactions:
-                raise ValueError("Không có nhân sự nào khớp phân khúc đã chọn.")
-
+        transactions = AprioriEngine.normalize_transactions(transactions)
         # Parse transaction database
         tid_list = []
         raw_tx_items = []
@@ -120,12 +129,15 @@ class AprioriEngine:
             supp_cnt = sum(bitvectors[item])
             supp_pct = (supp_cnt / n_tx) * 100.0
             is_freq = supp_cnt >= min_supp_count
-            c1_details.append({
+            detail = {
                 "itemset": sorted(list(itemset)),
                 "support_count": supp_cnt,
                 "support_pct": round(supp_pct, 2),
                 "is_frequent": is_freq
-            })
+            }
+            if include_vectors:
+                detail["vector"] = ''.join(map(str, bitvectors[item]))
+            c1_details.append(detail)
             if is_freq:
                 f1[itemset] = supp_cnt
                 frequent_itemsets[itemset] = supp_cnt
@@ -134,6 +146,7 @@ class AprioriEngine:
         itemset_steps.append({
             "k": 1,
             "candidates_C_k": c1_details,
+            "pruned_C_k": [],
             "frequent_F_k": [{"itemset": sorted(list(k)), "support_count": v, "support_pct": round((v/n_tx)*100, 2)} for k, v in f1.items()]
         })
 
@@ -155,15 +168,23 @@ class AprioriEngine:
             # Buoc rut gon (prune): drop any candidate having a (k-1)-subset that
             # is not frequent — it cannot be part of a frequent k-itemset.
             candidate_ck = set()
-            for c_set in candidate_parents:
-                subsets_ok = all(
-                    frozenset(sub) in prev_set
-                    for sub in _combinations(sorted(c_set), k - 1)
-                )
-                if subsets_ok:
+            pruned_details = []
+            for c_set in sorted(candidate_parents, key=lambda x: sorted(x)):
+                missing = [sorted(sub) for sub in _combinations(sorted(c_set), k - 1)
+                           if frozenset(sub) not in prev_set]
+                if missing:
+                    pruned_details.append({"itemset": sorted(c_set),
+                                           "infrequent_subsets": missing})
+                else:
                     candidate_ck.add(c_set)
 
             if not candidate_ck:
+                # Still report the level so pruned candidates (e.g. slide 35's
+                # {i1,i2,i3,i4}) stay visible.
+                if pruned_details:
+                    itemset_steps.append({"k": k, "candidates_C_k": [],
+                                          "pruned_C_k": pruned_details,
+                                          "frequent_F_k": []})
                 break
 
             ck_details = []
@@ -179,12 +200,15 @@ class AprioriEngine:
                 supp_pct = (supp_cnt / n_tx) * 100.0
                 is_freq = supp_cnt >= min_supp_count
 
-                ck_details.append({
+                detail = {
                     "itemset": sorted(list(c_set)),
                     "support_count": supp_cnt,
                     "support_pct": round(supp_pct, 2),
                     "is_frequent": is_freq
-                })
+                }
+                if include_vectors:
+                    detail["vector"] = ''.join(map(str, c_vec))
+                ck_details.append(detail)
 
                 if is_freq:
                     next_f[c_set] = supp_cnt
@@ -194,6 +218,7 @@ class AprioriEngine:
             itemset_steps.append({
                 "k": k,
                 "candidates_C_k": ck_details,
+                "pruned_C_k": pruned_details,
                 "frequent_F_k": [{"itemset": sorted(list(k_set)), "support_count": v, "support_pct": round((v/n_tx)*100, 2)} for k_set, v in next_f.items()]
             })
 
@@ -235,19 +260,6 @@ class AprioriEngine:
 
         valid_rules = [r for r in generated_rules if r['is_valid']]
 
-        # Target-oriented filter: keep only rules whose consequent matches the goal.
-        def _match_target(rule):
-            if target_mode == 'all':
-                return True
-            rhs = rule['rhs']
-            if target_mode == 'attrition':
-                return any(i.startswith('Attrition=') for i in rhs)
-            if target_mode == 'yes':
-                return rhs == ['Attrition=Yes']
-            return True
-
-        valid_rules = [r for r in valid_rules if _match_target(r)]
-
         # 3. Maximal frequent itemsets (tap pho bien toi dai — slide 18):
         # M is maximal if no other frequent itemset is a proper superset of it.
         all_fsets = list(frequent_itemsets.keys())
@@ -264,6 +276,7 @@ class AprioriEngine:
 
         return {
             "num_transactions": n_tx,
+            "tids": tid_list,
             "min_supp_pct": min_supp_pct,
             "min_conf_pct": min_conf_pct,
             "all_items": sorted_all_items,

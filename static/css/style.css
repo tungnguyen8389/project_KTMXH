@@ -484,7 +484,7 @@ tr:hover {
     gap: 6px;
     margin: 8px 0;
 }
-.fk-tab, .mx-tab {
+.fk-tab, .mx-tab, .ck-tab {
     padding: 6px 14px;
     border: 1px solid var(--border-color);
     background: #f1f5f9;
@@ -493,7 +493,7 @@ tr:hover {
     font-weight: 600;
     color: var(--accent-indigo);
 }
-.fk-tab.active, .mx-tab.active {
+.fk-tab.active, .mx-tab.active, .ck-tab.active {
     background: var(--accent-indigo);
     color: #fff;
 }

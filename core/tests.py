@@ -414,50 +414,10 @@ class RuleFilterTest(TestCase):
         self.assertEqual(len(hi["valid_rules"]), 0)
         self.assertGreater(len(lo["valid_rules"]), 0)
 
-    def test_target_yes_only_keeps_attrition_yes_consequent(self):
-        # WHY: the business question is who leaves; consequent must be exactly
-        # Attrition=Yes, not the reverse direction or Attrition=No.
-        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="yes")
-        self.assertGreaterEqual(len(res["valid_rules"]), 1)
-        for r in res["valid_rules"]:
-            self.assertEqual(r["rhs"], ["Attrition=Yes"])
-
-    def test_target_attrition_keeps_yes_and_no(self):
-        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="attrition")
-        self.assertTrue(all(any(i.startswith("Attrition=") for i in r["rhs"])
-                            for r in res["valid_rules"]))
-        rhs_vals = {i for r in res["valid_rules"] for i in r["rhs"]}
-        self.assertIn("Attrition=No", rhs_vals)
-
-    def test_target_all_is_superset_of_attrition(self):
-        # WHY: 'all' must not silently drop the attrition-target rules.
-        all_res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="all")
-        attr_res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50, target_mode="attrition")
-        self.assertGreater(len(all_res["valid_rules"]), len(attr_res["valid_rules"]))
-
     def test_defaults_preserve_unfiltered_behavior(self):
         # WHY: existing callers pass no new args; defaults must not filter.
         res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50)
         self.assertGreater(len(res["valid_rules"]), 0)
-
-    def test_segment_mode_restricts_to_class_and_drops_attrition(self):
-        # WHY: segment analysis must mine ONLY the leavers and remove the constant
-        # Attrition token, so support is measured over the segment and no frequent
-        # itemset re-introduces the class label as noise.
-        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50,
-                                        target_mode="yes", analysis_mode="segment")
-        self.assertEqual(res["num_transactions"], 2)  # only the 2 Attrition=Yes rows
-        freq_tokens = {it for step in res["itemset_steps"]
-                       for f in step["frequent_F_k"] for it in f["itemset"]}
-        self.assertFalse(any(t.startswith("Attrition=") for t in freq_tokens))
-        self.assertIn("OverTime=Yes", freq_tokens)
-
-    def test_class_mode_keeps_full_database(self):
-        # WHY: the default class mode must not shrink the database — support stays
-        # faithful to |O| over all records (slide definition).
-        res = AprioriEngine.run_apriori(self._attr_tx(), 50, 50,
-                                        target_mode="yes", analysis_mode="class")
-        self.assertEqual(res["num_transactions"], 4)
 
 
 class AprioriTheoryTest(TestCase):
@@ -531,6 +491,63 @@ class AprioriTheoryTest(TestCase):
         self.assertEqual(by_set[frozenset(["i2", "i3"])], 4)  # 4/5 = 0.8
         self.assertEqual(by_set[frozenset(["i3", "i4"])], 3)  # 3/5 = 0.6
 
+
+    def test_pruned_candidates_match_slide_extra_candidates(self):
+        # WHY: slides 33-35 evaluate {i1,i2,i4}, {i1,i3,i4}, {i1,i2,i3,i4}; the
+        # engine prunes them instead (slide 14), and must report them so the UI
+        # can show the slide's candidates were eliminated, including at k=4.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        pruned = {s["k"]: {frozenset(p["itemset"]) for p in s.get("pruned_C_k", [])}
+                  for s in res["itemset_steps"]}
+        self.assertEqual(pruned[3], {frozenset(["i1", "i2", "i4"]),
+                                     frozenset(["i1", "i3", "i4"])})
+        self.assertEqual(pruned[4], {frozenset(["i1", "i2", "i3", "i4"])})
+
+    def test_vectors_match_slide_when_requested(self):
+        # WHY: slides 30-34 print v(S) per candidate; JSON mode shows the same.
+        res = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0,
+                                        include_vectors=True)
+        vec = {frozenset(c["itemset"]): c["vector"]
+               for s in res["itemset_steps"] for c in s["candidates_C_k"]}
+        self.assertEqual(vec[frozenset(["i1"])], "10010")
+        self.assertEqual(vec[frozenset(["i2", "i3", "i4"])], "01100")
+        plain = AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0)
+        self.assertNotIn("vector", plain["itemset_steps"][0]["candidates_C_k"][0])
+
+    def test_normalize_accepts_slide_input_shapes(self):
+        # WHY: users paste slide data as item lists, tid maps, pair rows or the
+        # binary matrix; all must mine to the same frequent family.
+        expected = self._all_frequent(
+            AprioriEngine.run_apriori(self._slide_tx(), 40.0, 67.0))
+        rows = [["i1", "i2", "i3"], ["i2", "i3", "i4"], ["i2", "i3", "i4"],
+                ["i1", "i2", "i3"], ["i3", "i4"]]
+        tid_map = {f"o{i+1}": r for i, r in enumerate(rows)}
+        pairs = [{"tid": f"o{i+1}", "item": it} for i, r in enumerate(rows) for it in r]
+        matrix = [dict({"id": f"o{i+1}"},
+                       **{it: int(it in r) for it in ["i1", "i2", "i3", "i4"]})
+                  for i, r in enumerate(rows)]
+        for shape in (rows, tid_map, pairs, matrix):
+            res = AprioriEngine.run_apriori(shape, 40.0, 67.0)
+            self.assertEqual(self._all_frequent(res), expected)
+        res = AprioriEngine.run_apriori(tid_map, 40.0, 67.0)
+        self.assertEqual(res["tids"], ["o1", "o2", "o3", "o4", "o5"])
+
+    def test_api_slide_json_yields_slide_rule(self):
+        # WHY: end-to-end JSON import path; r1 {i1,i2}->{i3} (slide 20) has
+        # lift 1.0, so it must be valid when min_lift=0.
+        from rest_framework.test import APIClient
+        resp = APIClient().post('/api/apriori/', {
+            "transactions": self._slide_tx(), "min_supp": 40, "min_conf": 67,
+            "min_lift": 0, "include_vectors": True}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(self._all_frequent(data), {
+            frozenset(s) for s in [
+                ["i1"], ["i2"], ["i3"], ["i4"],
+                ["i1", "i2"], ["i1", "i3"], ["i2", "i3"], ["i2", "i4"], ["i3", "i4"],
+                ["i1", "i2", "i3"], ["i2", "i3", "i4"]]})
+        self.assertIn((["i1", "i2"], ["i3"]),
+                      [(r["lhs"], r["rhs"]) for r in data["valid_rules"]])
 
 class KMeansIntegrationTest(TestCase):
     """Unit tests for K-Means Clustering on HR database records and algorithms."""

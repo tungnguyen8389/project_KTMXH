@@ -2,10 +2,29 @@
 <section id="tab-apriori" class="tab-panel active">
     <div style="display:flex;flex-direction:column;gap:1.5rem;">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header flex-between">
                 <h3>Tham Số Apriori</h3>
+                <div class="btn-group-sm">
+                    <button type="button" id="ap-mode-db" class="btn btn-primary btn-sm active">📊 Dữ Liệu Nhân Sự (DB)</button>
+                    <button type="button" id="ap-mode-custom" class="btn btn-secondary btn-sm">📝 Dữ Liệu Tùy Chỉnh (JSON)</button>
+                </div>
             </div>
             <div class="card-body">
+                <!-- Custom JSON mode: paste slide transactions to compare results -->
+                <div id="ap-custom-controls" style="display:none;">
+                    <div class="form-group">
+                        <label>Ví dụ có sẵn từ slide:</label>
+                        <select id="ap-preset" class="form-control">
+                            <option value="slide">Ví dụ slide 11–35 (minsupp=0.4, minconf=0.67)</option>
+                            <option value="bt1">Bài tập 1 – slide 21 (minsupp=0.3, minconf=1.0)</option>
+                            <option value="bt2">Bài tập 2 – slide 22 (minsupp=0.3, minconf=1.0)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Giao dịch (JSON) — hỗ trợ <code>[{"tid","items"}]</code>, <code>{"o1": [...]}</code>, <code>[[...]]</code>, cặp <code>{"tid","item"}</code> hoặc ma trận nhị phân:</label>
+                        <textarea id="ap-json-input" class="form-control code-editor" rows="8"></textarea>
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Min Support (%):</label>
@@ -33,6 +52,8 @@
             <div class="card-body" style="display:flex;flex-direction:column;gap:2rem;">
                 <!-- 1. Binary table (row per transaction) -->
                 <div id="ap-bitvectors-box" class="table-responsive"></div>
+                <!-- 1b. Candidate C_k with v(S) and SP (JSON mode only, mirrors slides 30-35) -->
+                <div id="ap-candidates-box"></div>
                 <!-- 2. Rule cards satisfying min confidence -->
                 <div>
                     <h4 class="mb-2">Các Luật Kết Hợp Thỏa Mãn MinConf</h4>
