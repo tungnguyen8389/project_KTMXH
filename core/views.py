@@ -102,6 +102,29 @@ class ReductAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class RoughSetDataAPIView(APIView):
+    """[TV3] Prefill Rough Set / Reduct tab from HR DB, reusing encode_records.
+
+    Same reuse pattern as ClassificationDataAPIView: read Employee rows,
+    discretize numeric columns into categorical labels via encode_records
+    (owned by the Apriori encoder), so RoughSetEngine/ReductEngine get the
+    categorical values they need to group equivalence classes.
+    """
+    def get(self, request):
+        if not Employee.objects.exists():
+            return Response({'error': 'Chưa có dữ liệu nhân sự trong hệ thống.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            sample_size = int(request.query_params.get('sample_size', 30))
+            df = pd.DataFrame(hr_records())
+            if sample_size > 0:
+                df = df.head(sample_size)
+            records, report = encode_records(df, target="Attrition")
+            return Response({'data': records, 'report': report}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 NUMERIC_HR_FEATURES = [
     {"field": "Age", "label": "Tuổi (Age)"},
     {"field": "MonthlyIncome", "label": "Thu nhập hàng tháng ($)"},

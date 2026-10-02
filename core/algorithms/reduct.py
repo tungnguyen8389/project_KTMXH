@@ -8,8 +8,15 @@ class ReductEngine:
     absorption reduction, Minimal Reducts, and Core Attributes.
     """
 
+    MAX_CONDITION_ATTRS = 12
+
     @staticmethod
     def compute_reducts(data_list, condition_attrs, decision_attr):
+        if len(condition_attrs) > ReductEngine.MAX_CONDITION_ATTRS:
+            raise ValueError(
+                f"Vui lòng chọn tối đa {ReductEngine.MAX_CONDITION_ATTRS} thuộc tính điều kiện "
+                f"để tránh bùng nổ tổ hợp 2^|C| (hiện có {len(condition_attrs)})."
+            )
         df = pd.DataFrame(data_list)
         if 'id' not in df.columns:
             df['id'] = [f"x{i+1}" for i in range(len(df))]
@@ -48,6 +55,12 @@ class ReductEngine:
         # f_M = (a v b) ^ (a v c) ^ ...
         boolean_terms = ["(" + " ∨ ".join(sorted(list(clause))) + ")" for clause in non_empty_clauses]
         formula_str = " ∧ ".join(boolean_terms) if boolean_terms else "1"
+
+        # 2b. CORE computed directly from the matrix: an attribute is indispensable
+        # (belongs to every reduct) iff it appears alone in some c_ij (singleton
+        # clause) — cheaper than waiting for the full reduct search below, and
+        # matches how the theorem is taught (slide: single-attribute cells -> Core).
+        core_from_matrix = sorted({next(iter(clause)) for clause in non_empty_clauses if len(clause) == 1})
 
         # 3. Compute Reducts via set expansion & absorption
         # A reduct is a minimal subset R of C such that R intersects every non-empty clause in non_empty_clauses
@@ -92,6 +105,7 @@ class ReductEngine:
             "clauses": [sorted(list(c)) for c in non_empty_clauses],
             "minimal_reducts": minimal_reducts,
             "core_attributes": core_attrs,
+            "core_from_matrix": core_from_matrix,
             "katex_formula": rf"f_M = {formula_str.replace('∨', r'\vee').replace('∧', r'\wedge')}" if formula_str != "1" else r"f_M = 1",
             "katex_core": rf"CORE(C) = \bigcap RED(C) = \{{{', '.join(core_attrs) if core_attrs else r'\emptyset'}\}}"
         }
