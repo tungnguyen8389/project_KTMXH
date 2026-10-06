@@ -662,3 +662,46 @@ class RoughSetHRDataTest(TestCase):
         with self.assertRaises(ValueError):
             ReductEngine.compute_reducts(data, too_many_attrs, "b")
 
+
+    def test_sample_size_is_stratified_and_reproducible(self):
+        for i in range(40):
+            Employee.objects.create(
+                OverTime="Yes" if i % 2 else "No", MaritalStatus="Single",
+                JobSatisfaction=1 + i % 4, Age=25 + i, MonthlyIncome=2000 + 100 * i,
+                Attrition="Yes" if i % 5 == 0 else "No",
+                BusinessTravel="Travel_Rarely", JobRole="Sales Executive",
+                Department="Sales", Gender="Male", EducationField="Medical",
+                YearsAtCompany=i % 10, TotalWorkingYears=i % 15)
+        r1 = self.client.get("/api/roughset-data/?sample_size=10&seed=7").json()
+        r2 = self.client.get("/api/roughset-data/?sample_size=10&seed=7").json()
+        self.assertEqual(r1["data"], r2["data"])
+        self.assertEqual(r1["report"]["total_records"], 45)
+        self.assertIn(len(r1["data"]), (10, 11))
+        self.assertEqual(set(r1["report"]["class_distribution"]), {"Yes", "No"})
+        full = self.client.get("/api/roughset-data/?sample_size=0").json()
+        self.assertEqual(len(full["data"]), 45)
+
+    def test_large_table_fast_path_matches_pairwise_clauses(self):
+        # > MAX_MATRIX_OBJECTS objects take the distinct-row path; its clauses must
+        # equal those from an exhaustive object-pair scan.
+        import itertools
+        attrs = ["a", "b", "c"]
+        rows = [{"id": f"x{i}", "a": i % 3, "b": (i // 3) % 2, "c": i % 2,
+                 "d": "Y" if (i % 3 + i % 2) % 2 else "N"} for i in range(90)]
+        expected = set()
+        for r1, r2 in itertools.combinations(rows, 2):
+            if r1["d"] != r2["d"]:
+                diff = frozenset(a for a in attrs if r1[a] != r2[a])
+                if diff:
+                    expected.add(diff)
+        res = ReductEngine.compute_reducts(rows, attrs, "d")
+        self.assertTrue(res["matrix_truncated"])
+        self.assertEqual(res["num_objects"], 90)
+        self.assertEqual({frozenset(c) for c in res["clauses"]}, expected)
+        self.assertTrue(len(res["minimal_reducts"]) > 0)
+
+    def test_small_table_still_returns_full_matrix(self):
+        data = [{"id": "x1", "a": 1, "d": "Y"}, {"id": "x2", "a": 0, "d": "N"}]
+        res = ReductEngine.compute_reducts(data, ["a"], "d")
+        self.assertFalse(res["matrix_truncated"])
+        self.assertEqual(res["matrix_n_x_n"][1][0], "a")

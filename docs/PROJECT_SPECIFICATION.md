@@ -100,6 +100,10 @@ Hệ thống cho phép:
   - Phần tử $c_{ij} = \{ a \in C \mid a(x_i) \neq a(x_j) \}$ khi $d(x_i) \neq d(x_j)$.
   - Hàm phân biệt logic: $f_M = \bigwedge_{(i,j)} \left( \bigvee a \right)$.
   - Rút gọn tối tiểu $\text{RED}(C)$ và thuộc tính cốt lõi $\text{CORE}(C) = \bigcap \text{RED}(C)$.
+  - **Cài đặt `ReductEngine`:** tìm các tập thuộc tính nhỏ nhất giao đủ mọi mệnh đề của $f_M$ (minimal hitting set, duyệt theo kích thước tăng dần) — tương đương toán học với rút gọn $f_M$ bằng luật hấp thụ/phân phối nhưng không bùng nổ số đơn thức trung gian.
+  - **CORE suy trực tiếp từ ma trận:** thuộc tính xuất hiện đơn lẻ (mệnh đề 1 phần tử) trong một ô $c_{ij}$ — trả về ở trường `core_from_matrix`, luôn phải trùng `core_attributes` (giao các reduct).
+  - **Giới hạn an toàn:** tối đa 12 thuộc tính điều kiện mỗi lần tính Reduct (độ phức tạp $2^{|C|}$), vượt ngưỡng trả lỗi 400.
+  - **Bảng lớn:** với hơn 60 đối tượng, chỉ quét các dòng (giá trị điều kiện, quyết định) khác nhau thay vì mọi cặp đối tượng — cùng tập mệnh đề, nhanh hơn nhiều bậc (1.470 dòng ≈ 0,2 giây); ma trận $n \times n$ không được trả về (`matrix_truncated = true`), vẫn có đủ mệnh đề, Reduct và Core.
 
 ---
 
@@ -166,6 +170,7 @@ Hệ thống cho phép:
 | `POST` | `/api/preprocessing/` | Chuẩn hóa Min-Max / Z-Score | `data`, `feature`, `type`, `new_min`, `new_max` |
 | `POST` | `/api/rough-set/` | Tính xấp xỉ thô, vùng dương, độ phụ thuộc $k$ | `data`, `condition_attrs`, `decision_attr` |
 | `POST` | `/api/reduct/` | Tính ma trận phân biệt & tập rút gọn tối tiểu | `data`, `condition_attrs`, `decision_attr` |
+| `GET` | `/api/roughset-data/` | Nạp mẫu dữ liệu HR từ DB (đã rời rạc hoá bằng `encode_records`) cho tab Tập thô | `sample_size` (mặc định 30, `0` = toàn bộ), `seed` (mặc định 42) |
 | `POST` | `/api/kmeans/` | Phân cụm K-Means từng vòng lặp | `points`, `k`, `max_iter`, `initial_centroids` |
 | `POST` | `/api/apriori/` | Khai phá tập phổ biến & luật kết hợp | `transactions`, `min_supp`, `min_conf`, `min_lift`, `target_mode` |
 | `POST` | `/api/id3/` | Xây dựng cây quyết định ID3 | `data`, `condition_attrs`, `target_attr` |
@@ -177,8 +182,9 @@ Hệ thống cho phép:
 
 1. **Tab 1: Lý thuyết Tập thô & Rút gọn thuộc tính (`tab_roughset.html`)**
    - Bảng nhập dữ liệu mẫu (hoặc JSON).
+   - Nút **"Nạp dữ liệu HR (Attrition) từ DB"** cùng ô *Số bản ghi lấy mẫu* (0 = toàn bộ 1.470): lấy mẫu ngẫu nhiên phân tầng theo `Attrition`, tự điền thuộc tính điều kiện, thuộc tính quyết định và JSON; sau đó chạy 2 nút Xấp xỉ / Reduct như thường.
    - Render trực tiếp công thức xấp xỉ trên, dưới, vùng biên, độ phụ thuộc $k$ bằng **KaTeX**.
-   - Bảng ma trận phân biệt $n \times n$ có highlight các thuộc tính phân biệt.
+   - Bảng ma trận phân biệt $n \times n$ có highlight các thuộc tính phân biệt; ô đơn lẻ (thuộc tính cốt lõi) được tô nổi bật. Bảng hơn 60 đối tượng chỉ hiển thị mệnh đề, Reduct và Core.
 2. **Tab 2: Phân cụm K-Means (`tab_kmeans.html`)**
    - Khung nhập tọa độ 2D JSON, tùy chọn $k$ và `max_iter`.
    - Biểu đồ **2D Dynamic Scatter Plot** hiển thị màu cụm và tâm cụm xoay hình thoi.
@@ -197,11 +203,11 @@ Hệ thống cho phép:
 ## 7. KIỂM THỬ VÀ VẬN HÀNH (TESTING & OPERATIONS)
 
 ### 7.1. Chạy Unit Tests
-Hệ thống bao gồm 35 bài test tự động bao phủ toàn diện các phân hệ:
+Hệ thống bao gồm 49 bài test tự động bao phủ toàn diện các phân hệ:
 ```bash
 python manage.py test
 ```
-*Kết quả:* `Ran 35 tests in 0.099s - OK`.
+*Kết quả:* `Ran 49 tests in 0.081s - OK`.
 
 ### 7.2. Khởi chạy Hệ thống
 ```bash

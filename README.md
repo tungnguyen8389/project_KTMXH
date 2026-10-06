@@ -83,7 +83,7 @@ python manage.py runserver
 |---|---|
 | http://127.0.0.1:8000/ | Giao diện chính (các tab thuật toán) |
 | http://127.0.0.1:8000/admin/ | Trang quản trị Django |
-| http://127.0.0.1:8000/api/ | REST API (`datasets/`, `preprocessing/`, `rough-set/`, `reduct/`, `kmeans/`, `apriori/`, `encode-transactions/`, `classification-data/`, `id3/`, `naive-bayes/`) |
+| http://127.0.0.1:8000/api/ | REST API (`datasets/`, `preprocessing/`, `rough-set/`, `reduct/`, `roughset-data/`, `kmeans/`, `apriori/`, `encode-transactions/`, `classification-data/`, `id3/`, `naive-bayes/`) |
 
 Đổi cổng: `python manage.py runserver 8080`. Dừng server: `Ctrl + C`.
 

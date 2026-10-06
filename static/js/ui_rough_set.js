@@ -2,6 +2,13 @@
  * [TV4] UI Script for Preprocessing, Rough Set, and Reduct Visualizations
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // Show at most 40 chips so a 1.470-row table does not flood the page.
+    const MAX_CHIPS = 40;
+    const chipList = (items, style = '') => {
+        const shown = items.slice(0, MAX_CHIPS).map(o => `<span class="cond-chip" style="${style}">${o}</span>`).join('');
+        const rest = items.length - MAX_CHIPS;
+        return shown + (rest > 0 ? `<span class="cond-chip" style="${style}">… +${rest} đối tượng</span>` : '');
+    };
     // ---------------- 1. ROUGH SET EVENT LISTENER ----------------
     const btnRunRS = document.getElementById('btn-run-rs');
     if (btnRunRS) {
@@ -41,9 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="badge ${accBadge}">α = ${app.accuracy}</span>
                         </div>
                         <div class="chip-row" style="margin-bottom:0.5rem;">
-                            ${app.lower_approx.map(o => `<span class="cond-chip">${o}</span>`).join('')}
+                            ${chipList(app.lower_approx)}
                             ${app.boundary_region.length ? `<span class="rule-arrow" style="font-size:1rem;">+</span>` : ''}
-                            ${app.boundary_region.map(o => `<span class="cond-chip" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c;">${o}</span>`).join('')}
+                            ${chipList(app.boundary_region, 'background:#fff7ed;border-color:#fed7aa;color:#c2410c;')}
                         </div>
                         <p>$$${app.katex_lower}$$</p>
                         <p>$$${app.katex_upper}$$</p>
@@ -53,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 katexHtml += `<h3 style="margin-top:1.25rem;">3. Miền Dương & Hệ số phụ thuộc k</h3>`;
-                katexHtml += `<div class="chip-row" style="margin:0.5rem 0;">${res.positive_region.map(o => `<span class="cond-chip">${o}</span>`).join('')}</div>`;
+                katexHtml += `<div class="chip-row" style="margin:0.5rem 0;">${chipList(res.positive_region)}</div>`;
                 katexHtml += `<p>$$${res.katex_pos}$$</p>`;
 
                 katexBox.innerHTML = katexHtml;
@@ -71,7 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnPrefillRS) {
         btnPrefillRS.addEventListener('click', async () => {
             try {
-                const res = await API.get('roughset-data');
+                const sampleSize = parseInt(document.getElementById('rs-sample-size').value, 10);
+                // API.get() appends a trailing "/" to the endpoint, which would corrupt a query string.
+                const size = Number.isNaN(sampleSize) ? 30 : sampleSize;
+                const resp = await fetch(`/api/roughset-data/?sample_size=${size}`);
+                const res = await resp.json();
+                if (!resp.ok) {
+                    alert(`Lỗi API (roughset-data): ${res.error || 'Lỗi khi gọi API backend!'}`);
+                    return;
+                }
                 const rpt = res.report || {};
                 const target = rpt.target_attr || 'Attrition';
                 const defaultAttrs = rpt.default_selected_attrs || [];
@@ -86,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dist = Object.entries(rpt.class_distribution || {})
                         .map(([k, v]) => `${k}=${v}`).join(', ');
                     info.innerHTML =
-                        `Đã nạp <strong>${rpt.num_records}</strong> bản ghi · nhãn <strong>${target}</strong> (${dist})<br>` +
+                        `Đã nạp <strong>${rpt.num_records}</strong>/${rpt.total_records} bản ghi từ DB (seed ${rpt.seed}) · nhãn <strong>${target}</strong> (${dist})<br>` +
                         `Thuộc tính có thể chọn: <code>${pool.join(', ')}</code><br>` +
                         `Đang chọn mặc định <strong>${defaultAttrs.length}</strong> thuộc tính (tối đa 12 thuộc tính điều kiện cho Reduct để tránh bùng nổ tổ hợp).`;
                 }
@@ -143,6 +158,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Render n x n matrix table — highlight singleton (Core) cells.
                 const matrixBox = document.getElementById('rs-matrix-output');
+                if (res.matrix_truncated) {
+                    matrixBox.innerHTML = `<p class="placeholder-text">Bảng có ${res.num_objects} đối tượng — ma trận phân biệt ${res.num_objects}×${res.num_objects} quá lớn để hiển thị (giới hạn 60). Mệnh đề, Reduct và Core vẫn được tính đầy đủ ở trên; giảm số bản ghi lấy mẫu xuống ≤ 60 để xem từng ô.</p>`;
+                    if (window.renderMathInElement) {
+                        renderMathInElement(katexBox, { delimiters: [{ left: '$$', right: '$$', display: true }] });
+                    }
+                    return;
+                }
                 let mHtml = '<h4>Ma Trận Phân Biệt M = (c_ij)</h4><table><thead><tr><th></th>';
                 res.objects.forEach(obj => { mHtml += `<th>${obj}</th>`; });
                 mHtml += '</tr></thead><tbody>';

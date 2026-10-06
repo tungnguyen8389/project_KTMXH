@@ -109,6 +109,10 @@ class RoughSetDataAPIView(APIView):
     discretize numeric columns into categorical labels via encode_records
     (owned by the Apriori encoder), so RoughSetEngine/ReductEngine get the
     categorical values they need to group equivalence classes.
+
+    Query params: sample_size (default 30, 0 = whole table) and seed (default 42).
+    The sample is stratified by Attrition so both classes keep their DB share
+    (the first N rows alone would give a misleadingly consistent table).
     """
     def get(self, request):
         if not Employee.objects.exists():
@@ -116,10 +120,23 @@ class RoughSetDataAPIView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         try:
             sample_size = int(request.query_params.get('sample_size', 30))
+            seed = int(request.query_params.get('seed', 42))
             df = pd.DataFrame(hr_records())
-            if sample_size > 0:
-                df = df.head(sample_size)
             records, report = encode_records(df, target="Attrition")
+            total = len(records)
+            if 0 < sample_size < total:
+                rec_df = pd.DataFrame(records)
+                frac = sample_size / total
+                parts = [
+                    g.sample(n=min(len(g), max(1, round(len(g) * frac))), random_state=seed)
+                    for _, g in rec_df.groupby("Attrition")
+                ]
+                rec_df = pd.concat(parts).sample(frac=1, random_state=seed)
+                records = rec_df.to_dict('records')
+                report['class_distribution'] = rec_df["Attrition"].value_counts().to_dict()
+            report['total_records'] = total
+            report['num_records'] = len(records)
+            report['seed'] = seed
             return Response({'data': records, 'report': report}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
