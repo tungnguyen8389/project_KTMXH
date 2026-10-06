@@ -603,3 +603,105 @@ class KMeansIntegrationTest(TestCase):
         self.assertGreater(len(data["features"]), 5)
         self.assertEqual(data["total_employees"], 6)
 
+
+class RoughSetHRDataTest(TestCase):
+    """Prefill Rough Set / Reduct tab from the HR DB via /api/roughset-data/."""
+
+    def setUp(self):
+        # A handful of employees with repeated categorical combinations so
+        # equivalence classes actually group objects (not all-singletons).
+        common = dict(BusinessTravel="Travel_Rarely", JobRole="Sales Executive",
+                      Department="Sales", Gender="Female", EducationField="Life Sciences",
+                      YearsAtCompany=3, TotalWorkingYears=5)
+        Employee.objects.create(OverTime="Yes", MaritalStatus="Single",
+                                 JobSatisfaction=3, Age=28, MonthlyIncome=3200,
+                                 Attrition="Yes", **common)
+        Employee.objects.create(OverTime="Yes", MaritalStatus="Single",
+                                 JobSatisfaction=3, Age=29, MonthlyIncome=3100,
+                                 Attrition="Yes", **common)
+        Employee.objects.create(OverTime="No", MaritalStatus="Married",
+                                 JobSatisfaction=4, Age=45, MonthlyIncome=9000,
+                                 Attrition="No", **common)
+        Employee.objects.create(OverTime="No", MaritalStatus="Married",
+                                 JobSatisfaction=4, Age=46, MonthlyIncome=9200,
+                                 Attrition="No", **common)
+        Employee.objects.create(OverTime="Yes", MaritalStatus="Divorced",
+                                 JobSatisfaction=2, Age=35, MonthlyIncome=5000,
+                                 Attrition="No", **common)
+
+    def test_roughset_data_endpoint_returns_categorical_records(self):
+        resp = self.client.get("/api/roughset-data/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["report"]["target_attr"], "Attrition")
+        self.assertEqual(len(body["data"]), 5)
+        # Age/MonthlyIncome must come back as bin labels, not raw numbers.
+        sample = body["data"][0]
+        for attr, val in sample.items():
+            if attr != body["report"]["target_attr"]:
+                self.assertIsInstance(val, str)
+        self.assertTrue(set(body["report"]["available_attrs"]) & set(sample.keys()))
+
+    def test_engines_run_on_encoded_hr_data(self):
+        resp = self.client.get("/api/roughset-data/")
+        body = resp.json()
+        cond_attrs = body["report"]["default_selected_attrs"]
+        target = body["report"]["target_attr"]
+
+        rs = RoughSetEngine.analyze_rough_set(body["data"], cond_attrs, target)
+        self.assertGreaterEqual(rs["dependency_k"], 0.0)
+        self.assertLessEqual(rs["dependency_k"], 1.0)
+
+        red = ReductEngine.compute_reducts(body["data"], cond_attrs, target)
+        self.assertTrue(len(red["minimal_reducts"]) > 0)
+        self.assertIn("core_from_matrix", red)
+
+    def test_reduct_rejects_too_many_attrs(self):
+        data = [{"id": "x1", "a": 1, "b": 1}, {"id": "x2", "a": 0, "b": 1}]
+        too_many_attrs = [f"attr{i}" for i in range(ReductEngine.MAX_CONDITION_ATTRS + 1)]
+        with self.assertRaises(ValueError):
+            ReductEngine.compute_reducts(data, too_many_attrs, "b")
+
+
+    def test_sample_size_is_stratified_and_reproducible(self):
+        for i in range(40):
+            Employee.objects.create(
+                OverTime="Yes" if i % 2 else "No", MaritalStatus="Single",
+                JobSatisfaction=1 + i % 4, Age=25 + i, MonthlyIncome=2000 + 100 * i,
+                Attrition="Yes" if i % 5 == 0 else "No",
+                BusinessTravel="Travel_Rarely", JobRole="Sales Executive",
+                Department="Sales", Gender="Male", EducationField="Medical",
+                YearsAtCompany=i % 10, TotalWorkingYears=i % 15)
+        r1 = self.client.get("/api/roughset-data/?sample_size=10&seed=7").json()
+        r2 = self.client.get("/api/roughset-data/?sample_size=10&seed=7").json()
+        self.assertEqual(r1["data"], r2["data"])
+        self.assertEqual(r1["report"]["total_records"], 45)
+        self.assertIn(len(r1["data"]), (10, 11))
+        self.assertEqual(set(r1["report"]["class_distribution"]), {"Yes", "No"})
+        full = self.client.get("/api/roughset-data/?sample_size=0").json()
+        self.assertEqual(len(full["data"]), 45)
+
+    def test_large_table_fast_path_matches_pairwise_clauses(self):
+        # > MAX_MATRIX_OBJECTS objects take the distinct-row path; its clauses must
+        # equal those from an exhaustive object-pair scan.
+        import itertools
+        attrs = ["a", "b", "c"]
+        rows = [{"id": f"x{i}", "a": i % 3, "b": (i // 3) % 2, "c": i % 2,
+                 "d": "Y" if (i % 3 + i % 2) % 2 else "N"} for i in range(90)]
+        expected = set()
+        for r1, r2 in itertools.combinations(rows, 2):
+            if r1["d"] != r2["d"]:
+                diff = frozenset(a for a in attrs if r1[a] != r2[a])
+                if diff:
+                    expected.add(diff)
+        res = ReductEngine.compute_reducts(rows, attrs, "d")
+        self.assertTrue(res["matrix_truncated"])
+        self.assertEqual(res["num_objects"], 90)
+        self.assertEqual({frozenset(c) for c in res["clauses"]}, expected)
+        self.assertTrue(len(res["minimal_reducts"]) > 0)
+
+    def test_small_table_still_returns_full_matrix(self):
+        data = [{"id": "x1", "a": 1, "d": "Y"}, {"id": "x2", "a": 0, "d": "N"}]
+        res = ReductEngine.compute_reducts(data, ["a"], "d")
+        self.assertFalse(res["matrix_truncated"])
+        self.assertEqual(res["matrix_n_x_n"][1][0], "a")

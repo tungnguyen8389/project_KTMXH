@@ -31,6 +31,14 @@
                     <button id="btn-run-rs" class="btn btn-primary">Xấp Xỉ Trên/Dưới & k</button>
                     <button id="btn-run-reduct" class="btn btn-secondary">Ma Trận Phân Biệt & Reduct</button>
                 </div>
+                <div class="form-group" style="margin-top:0.75rem;">
+                    <label for="rs-sample-size">Số bản ghi lấy mẫu từ DB (0 = toàn bộ 1.470, lấy mẫu phân tầng theo Attrition):</label>
+                    <input type="number" id="rs-sample-size" class="form-control" value="30" min="0" max="1470">
+                </div>
+                <button id="btn-prefill-rs-hr" class="btn btn-outline-primary btn-block mt-2" type="button">
+                    Nạp dữ liệu HR (Attrition) từ DB
+                </button>
+                <div id="rs-prefill-report" class="small text-muted mt-2"></div>
             </div>
         </div>
 
