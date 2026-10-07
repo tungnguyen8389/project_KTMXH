@@ -38,8 +38,10 @@ class ReductEngine:
             for i in range(n):
                 row_matrix = []
                 for j in range(n):
-                    if i <= j:
-                        row_matrix.append("-")
+                    if i == j:
+                        row_matrix.append("Ø")  # an object vs itself: nothing differs (slide shows ∅ on the diagonal)
+                    elif i < j:
+                        row_matrix.append("-")  # symmetric half, not shown
                     else:
                         d_i = df.iloc[i][decision_attr]
                         d_j = df.iloc[j][decision_attr]

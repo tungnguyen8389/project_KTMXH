@@ -705,3 +705,180 @@ class RoughSetHRDataTest(TestCase):
         res = ReductEngine.compute_reducts(data, ["a"], "d")
         self.assertFalse(res["matrix_truncated"])
         self.assertEqual(res["matrix_n_x_n"][1][0], "a")
+
+
+def _classes(ind_b_classes):
+    return {frozenset(c) for c in ind_b_classes}
+
+
+class RoughSetLectureExamplesTest(TestCase):
+    """Đối soát thuật toán với các ví dụ GIẢI SẴN của thầy trong Bai3_Reduct.pdf
+    (Bài 4 - Tập thô). Dữ liệu và đáp án chép nguyên từ slide; kết quả engine phải
+    trùng đáp án của thầy."""
+
+    # ---- Slide 5-19: bảng "Thi đậu" (Bảng 1) --------------------------------
+    EXAM = [
+        {"id": "x1", "Tuoi": "16-30", "SoBuoi": "50",    "ThiDau": "yes"},
+        {"id": "x2", "Tuoi": "16-30", "SoBuoi": "0",     "ThiDau": "no"},
+        {"id": "x3", "Tuoi": "31-45", "SoBuoi": "1-25",  "ThiDau": "no"},
+        {"id": "x4", "Tuoi": "31-45", "SoBuoi": "1-25",  "ThiDau": "yes"},
+        {"id": "x5", "Tuoi": "46-60", "SoBuoi": "26-49", "ThiDau": "no"},
+        {"id": "x6", "Tuoi": "16-30", "SoBuoi": "26-49", "ThiDau": "yes"},
+        {"id": "x7", "Tuoi": "46-60", "SoBuoi": "26-49", "ThiDau": "no"},
+    ]
+
+    def test_slide10_indiscernibility_classes(self):
+        def ind(attrs):
+            return _classes(RoughSetEngine.analyze_rough_set(
+                self.EXAM, attrs, "ThiDau")["ind_b_classes"])
+        self.assertEqual(ind(["Tuoi"]),
+                         {frozenset(s) for s in (["x1", "x2", "x6"], ["x3", "x4"], ["x5", "x7"])})
+        self.assertEqual(ind(["SoBuoi"]),
+                         {frozenset(s) for s in (["x1"], ["x2"], ["x3", "x4"], ["x5", "x6", "x7"])})
+        self.assertEqual(ind(["Tuoi", "SoBuoi"]),
+                         {frozenset(s) for s in (["x1"], ["x2"], ["x3", "x4"], ["x5", "x7"], ["x6"])})
+
+    def test_slide17_19_approximation_of_W_and_accuracy(self):
+        # W = {x | thi đậu = yes} = {x1,x4,x6}, B = {Độ tuổi, Số buổi}.
+        rs = RoughSetEngine.analyze_rough_set(self.EXAM, ["Tuoi", "SoBuoi"], "ThiDau")
+        w = rs["approximations"]["yes"]
+        self.assertEqual(w["target_set_X"], ["x1", "x4", "x6"])
+        self.assertEqual(w["lower_approx"], ["x1", "x6"])
+        self.assertEqual(w["upper_approx"], ["x1", "x3", "x4", "x6"])
+        self.assertEqual(w["boundary_region"], ["x3", "x4"])
+        # Vùng B-ngoài U - upper = {x2,x5,x7}; alpha = |lower|/|upper| = 2/4.
+        outside = sorted(set(rs["universe"]) - set(w["upper_approx"]))
+        self.assertEqual(outside, ["x2", "x5", "x7"])
+        self.assertEqual(w["accuracy"], 0.5)
+
+    # ---- Slide 30-34: bảng thời tiết, bài tập 1a/1b -------------------------
+    WEATHER = [
+        {"id": "o1", "Troi": "Trong", "Gio": "Bac", "Apsuat": "Cao", "Ketqua": "Kmua"},
+        {"id": "o2", "Troi": "May",   "Gio": "Nam", "Apsuat": "Cao", "Ketqua": "Mua"},
+        {"id": "o3", "Troi": "May",   "Gio": "Bac", "Apsuat": "TB",  "Ketqua": "Mua"},
+        {"id": "o4", "Troi": "Trong", "Gio": "Bac", "Apsuat": "Thap", "Ketqua": "Kmua"},
+        {"id": "o5", "Troi": "May",   "Gio": "Bac", "Apsuat": "Thap", "Ketqua": "Mua"},
+        {"id": "o6", "Troi": "May",   "Gio": "Bac", "Apsuat": "Cao", "Ketqua": "Mua"},
+        {"id": "o7", "Troi": "May",   "Gio": "Nam", "Apsuat": "Thap", "Ketqua": "Kmua"},
+        {"id": "o8", "Troi": "Trong", "Gio": "Nam", "Apsuat": "Cao", "Ketqua": "Kmua"},
+    ]
+
+    def test_slide32_33_approximation_of_X(self):
+        # X = {o1,o3,o4}, B = {Troi, Gio} -> đánh dấu X bằng cột phụ để dùng engine.
+        data = [dict(r, InX="in" if r["id"] in ("o1", "o3", "o4") else "out")
+                for r in self.WEATHER]
+        rs = RoughSetEngine.analyze_rough_set(data, ["Troi", "Gio"], "InX")
+        self.assertEqual(
+            _classes(rs["ind_b_classes"]),
+            {frozenset(s) for s in (["o1", "o4"], ["o2", "o7"], ["o3", "o5", "o6"], ["o8"])})
+        x = rs["approximations"]["in"]
+        self.assertEqual(x["lower_approx"], ["o1", "o4"])
+        self.assertEqual(x["upper_approx"], ["o1", "o3", "o4", "o5", "o6"])
+        self.assertEqual(x["accuracy"], 0.4)  # 2/5 như slide 33
+
+    def test_slide34_dependency_k(self):
+        rs = RoughSetEngine.analyze_rough_set(self.WEATHER, ["Troi", "Gio"], "Ketqua")
+        self.assertEqual(rs["approximations"]["Kmua"]["target_set_X"], ["o1", "o4", "o7", "o8"])
+        self.assertEqual(rs["approximations"]["Mua"]["target_set_X"], ["o2", "o3", "o5", "o6"])
+        self.assertEqual(rs["approximations"]["Kmua"]["lower_approx"], ["o1", "o4", "o8"])
+        self.assertEqual(rs["approximations"]["Mua"]["lower_approx"], ["o3", "o5", "o6"])
+        # Slide: k = (3 + 3) / 8. Slide ghi "= 0.66" là nhầm phép chia, 6/8 = 0.75.
+        self.assertEqual(len(rs["positive_region"]), 6)
+        self.assertEqual(rs["dependency_k"], 0.75)
+
+    # ---- Slide 35-43: bảng "rám nắng" (tìm reduct) -------------------------
+    SUNBURN = [
+        {"id": "o1", "T": "Den", "C": "TamThuoc", "N": "Nhe",     "D": "Khong", "KQ": "BiRam"},
+        {"id": "o2", "T": "Den", "C": "Cao",      "N": "VuaPhai", "D": "Co",    "KQ": "Khong"},
+        {"id": "o3", "T": "Ram", "C": "Thap",     "N": "VuaPhai", "D": "Co",    "KQ": "Khong"},
+        {"id": "o4", "T": "Den", "C": "Thap",     "N": "VuaPhai", "D": "Khong", "KQ": "BiRam"},
+        {"id": "o5", "T": "Bac", "C": "TamThuoc", "N": "Nang",    "D": "Khong", "KQ": "BiRam"},
+        {"id": "o6", "T": "Ram", "C": "Cao",      "N": "Nang",    "D": "Khong", "KQ": "Khong"},
+        {"id": "o7", "T": "Ram", "C": "TamThuoc", "N": "Nang",    "D": "Khong", "KQ": "Khong"},
+        {"id": "o8", "T": "Den", "C": "Thap",     "N": "Nhe",     "D": "Co",    "KQ": "Khong"},
+    ]
+
+    def test_slide38_discernibility_function_and_reducts(self):
+        red = ReductEngine.compute_reducts(self.SUNBURN, ["T", "C", "N", "D"], "KQ")
+        # F = (C∨N∨D)(T∨C∨N∨D)(T∨C∨N)(T∨N)(C∨D)(T∨D)(N∨D)(T∨C)(T)
+        slide_clauses = {frozenset(c) for c in (
+            "CND", "TCND", "TCN", "TN", "CD", "TD", "ND", "TC", "T")}
+        self.assertEqual({frozenset(c) for c in red["clauses"]}, slide_clauses)
+        # Đáp án: B1 = {T,D}, B2 = {T,C,N}; CORE = {T} (mệnh đề đơn "T").
+        self.assertEqual(sorted(red["minimal_reducts"]), [["C", "N", "T"], ["D", "T"]])
+        self.assertEqual(red["core_attributes"], ["T"])
+        self.assertEqual(red["core_from_matrix"], ["T"])
+
+    def test_slide39_43_partitions_and_exact_rules(self):
+        def run(attrs):
+            return RoughSetEngine.analyze_rough_set(self.SUNBURN, attrs, "KQ")
+        b1 = run(["T", "D"])
+        self.assertEqual(
+            _classes(b1["ind_b_classes"]),
+            {frozenset(s) for s in (["o1", "o4"], ["o2", "o8"], ["o3"], ["o5"], ["o6", "o7"])})
+        b2 = run(["T", "C", "N"])
+        self.assertEqual(_classes(b2["ind_b_classes"]), {frozenset([o]) for o in
+                         ("o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8")})
+        # Mọi lớp tương đương của B1 nằm trọn trong X1 hoặc X2 -> luật chính xác 100%.
+        self.assertEqual(b1["approximations"]["BiRam"]["lower_approx"], ["o1", "o4", "o5"])
+        self.assertEqual(b1["approximations"]["Khong"]["lower_approx"],
+                         ["o2", "o3", "o6", "o7", "o8"])
+        self.assertEqual(b1["dependency_k"], 1.0)
+
+    # ---- Slide 25-28: bảng tuyển dụng (ví dụ về rút gọn) --------------------
+    RECRUIT = [  # d = Bằng cấp, e = Kinh nghiệm, f = Tiếng Anh, r = Giới thiệu
+        {"id": "x1", "d": "MBA", "e": "Vua",   "f": "Tot",   "r": "XuatSac",   "KQ": "ChapNhan"},
+        {"id": "x4", "d": "MSC", "e": "Nhieu", "f": "Tot",   "r": "TrungBinh", "KQ": "ChapNhan"},
+        {"id": "x6", "d": "MSC", "e": "Nhieu", "f": "Tot",   "r": "XuatSac",   "KQ": "ChapNhan"},
+        {"id": "x7", "d": "MBA", "e": "Nhieu", "f": "Khong", "r": "Tot",       "KQ": "ChapNhan"},
+        {"id": "x2", "d": "MBA", "e": "Thap",  "f": "Tot",   "r": "TrungBinh", "KQ": "TuChoi"},
+        {"id": "x3", "d": "MCE", "e": "Thap",  "f": "Tot",   "r": "Tot",       "KQ": "TuChoi"},
+        {"id": "x5", "d": "MSC", "e": "Vua",   "f": "Tot",   "r": "TrungBinh", "KQ": "TuChoi"},
+        {"id": "x8", "d": "MCE", "e": "Thap",  "f": "Khong", "r": "XuatSac",   "KQ": "TuChoi"},
+    ]
+
+    def test_slide27_discernibility_matrix(self):
+        red = ReductEngine.compute_reducts(self.RECRUIT, ["d", "e", "f", "r"], "KQ")
+        m = red["matrix_n_x_n"]
+        # Hàng x2, x3, x5, x8 (chỉ số 4..7) x cột [x1][x4][x6][x7] (0..3), đúng slide 27.
+        self.assertEqual(m[4][:4], ["e, r", "d, e", "d, e, r", "e, f, r"])
+        self.assertEqual(m[5][:4], ["d, e, r", "d, e, r", "d, e, r", "d, e, f"])
+        self.assertEqual(m[6][:4], ["d, r", "e", "e, r", "d, e, f, r"])
+        self.assertEqual(m[7][:4], ["d, e, f", "d, e, f, r", "d, e, f", "d, e, r"])
+        # Các cặp cùng giá trị quyết định là rỗng (∅).
+        self.assertEqual(m[1][0], "Ø")
+        self.assertEqual(m[5][4], "Ø")
+        # Đường chéo (đối tượng so với chính nó) cũng là ∅ như slide 27: [x1][x1] ... [x8][x8].
+        for i in range(8):
+            self.assertEqual(m[i][i], "Ø")
+        # Nửa tam giác trên không hiển thị.
+        self.assertEqual(m[0][1], "-")
+        self.assertEqual(m[6][7], "-")
+
+    def test_slide28_discernibility_function_and_reducts(self):
+        red = ReductEngine.compute_reducts(self.RECRUIT, ["d", "e", "f", "r"], "KQ")
+        # f = (e∨r)(d∨e)(d∨e∨r)(e∨f∨r)(d∨e∨f)(d∨r)(e)(d∨e∨f∨r) ... = ed ∨ er
+        slide_clauses = {frozenset(c) for c in (
+            "er", "de", "der", "efr", "def", "dr", "e", "defr")}
+        self.assertEqual({frozenset(c) for c in red["clauses"]}, slide_clauses)
+        self.assertEqual(sorted(red["minimal_reducts"]), [["d", "e"], ["e", "r"]])
+        self.assertEqual(red["core_attributes"], ["e"])
+        self.assertEqual(red["core_from_matrix"], ["e"])
+
+    def test_slide37_discernibility_matrix_all_cells(self):
+        # Ma trận phân biệt slide 37 (λ = ô rỗng). Khóa: (hàng, cột).
+        slide = {
+            ("o2", "o1"): "CND",
+            ("o3", "o1"): "TCND", ("o3", "o2"): "",
+            ("o4", "o1"): "", ("o4", "o2"): "CD", ("o4", "o3"): "TD",
+            ("o5", "o1"): "", ("o5", "o2"): "TCND", ("o5", "o3"): "TCND", ("o5", "o4"): "",
+            ("o6", "o1"): "TCN", ("o6", "o2"): "", ("o6", "o3"): "", ("o6", "o4"): "TCN", ("o6", "o5"): "TC",
+            ("o7", "o1"): "TN", ("o7", "o2"): "", ("o7", "o3"): "", ("o7", "o4"): "TCN", ("o7", "o5"): "T", ("o7", "o6"): "",
+            ("o8", "o1"): "CD", ("o8", "o2"): "", ("o8", "o3"): "", ("o8", "o4"): "ND", ("o8", "o5"): "TCND", ("o8", "o6"): "", ("o8", "o7"): "",
+        }
+        red = ReductEngine.compute_reducts(self.SUNBURN, ["T", "C", "N", "D"], "KQ")
+        ids = red["objects"]
+        for (row, col), expected in slide.items():
+            cell = red["matrix_n_x_n"][ids.index(row)][ids.index(col)]
+            got = set() if cell == "Ø" else set(cell.split(", "))
+            self.assertEqual(got, set(expected), f"ô [{row}][{col}]")

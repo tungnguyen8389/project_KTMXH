@@ -8,24 +8,15 @@
             <div class="card-body">
                 <div class="form-group">
                     <label>Thuộc tính điều kiện $C$ (phân cách bằng dấu phẩy):</label>
-                    <input type="text" id="rs-cond-attrs" class="form-control" value="a, b, c, d">
+                    <input type="text" id="rs-cond-attrs" class="form-control" value="">
                 </div>
                 <div class="form-group">
                     <label>Thuộc tính quyết định $D$:</label>
-                    <input type="text" id="rs-dec-attr" class="form-control" value="e">
+                    <input type="text" id="rs-dec-attr" class="form-control" value="">
                 </div>
                 <div class="form-group">
                     <label>Bảng Hệ thông tin (JSON):</label>
-                    <textarea id="rs-json-input" class="form-control code-editor" rows="7">[
-  {"id": "x1", "a": 1, "b": 1, "c": 0, "d": 1, "e": 1},
-  {"id": "x2", "a": 1, "b": 0, "c": 0, "d": 1, "e": 1},
-  {"id": "x3", "a": 0, "b": 0, "c": 0, "d": 0, "e": 0},
-  {"id": "x4", "a": 1, "b": 1, "c": 0, "d": 0, "e": 0},
-  {"id": "x5", "a": 0, "b": 1, "c": 0, "d": 1, "e": 1},
-  {"id": "x6", "a": 0, "b": 0, "c": 0, "d": 1, "e": 0},
-  {"id": "x7", "a": 1, "b": 0, "c": 1, "d": 1, "e": 1},
-  {"id": "x8", "a": 0, "b": 1, "c": 1, "d": 0, "e": 0}
-]</textarea>
+                    <textarea id="rs-json-input" class="form-control code-editor" rows="7"></textarea>
                 </div>
                 <div class="btn-group-2">
                     <button id="btn-run-rs" class="btn btn-primary">Xấp Xỉ Trên/Dưới & k</button>
@@ -47,6 +38,7 @@
                 <h3>Kết Quả Phân Tích Tập Thô</h3>
             </div>
             <div class="card-body">
+                <div id="rs-slide-check"></div>
                 <div id="rs-katex-output" class="formula-box">
                     <p class="placeholder-text">Kết quả tính toán Xấp xỉ và Rút gọn Boole sẽ hiển thị tại đây.</p>
                 </div>
