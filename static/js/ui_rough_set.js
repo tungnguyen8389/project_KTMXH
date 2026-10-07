@@ -9,6 +9,105 @@ document.addEventListener('DOMContentLoaded', () => {
         const rest = items.length - MAX_CHIPS;
         return shown + (rest > 0 ? `<span class="cond-chip" style="${style}">… +${rest} đối tượng</span>` : '');
     };
+
+    // ---------------- SLIDE EXAMPLE (Bai3_Reduct.pdf, Bài 4 - Tập thô, slide 25-28) ----------------
+    // Bảng tuyển dụng của thầy. Sau khi chạy Reduct, kết quả được so với đáp án trên slide.
+    // d = Bằng cấp, e = Kinh nghiệm, f = Tiếng Anh, r = Giới thiệu.
+    const SLIDE = {
+        cond: ['d', 'e', 'f', 'r'], dec: 'TuyenDung',
+        data: [
+            { id: 'x1', d: 'MBA', e: 'Vừa', f: 'Tốt', r: 'Xuất_sắc', TuyenDung: 'Chấp_nhận' },
+            { id: 'x4', d: 'MSC', e: 'Nhiều', f: 'Tốt', r: 'Trung_bình', TuyenDung: 'Chấp_nhận' },
+            { id: 'x6', d: 'MSC', e: 'Nhiều', f: 'Tốt', r: 'Xuất_sắc', TuyenDung: 'Chấp_nhận' },
+            { id: 'x7', d: 'MBA', e: 'Nhiều', f: 'Không', r: 'Tốt', TuyenDung: 'Chấp_nhận' },
+            { id: 'x2', d: 'MBA', e: 'Thấp', f: 'Tốt', r: 'Trung_bình', TuyenDung: 'Từ_chối' },
+            { id: 'x3', d: 'MCE', e: 'Thấp', f: 'Tốt', r: 'Tốt', TuyenDung: 'Từ_chối' },
+            { id: 'x5', d: 'MSC', e: 'Vừa', f: 'Tốt', r: 'Trung_bình', TuyenDung: 'Từ_chối' },
+            { id: 'x8', d: 'MCE', e: 'Thấp', f: 'Không', r: 'Xuất_sắc', TuyenDung: 'Từ_chối' },
+        ],
+        // Đáp án trên slide.
+        reducts: [['d', 'e'], ['e', 'r']],                               // slide 28: f = ed ∨ er
+        core: ['e'],
+        clauses: ['er', 'de', 'der', 'efr', 'def', 'dr', 'e', 'defr'],   // slide 28
+        // Slide 27: ô [hàng][cột] của ma trận phân biệt (hàng x2,x3,x5,x8 × cột x1,x4,x6,x7).
+        matrix: {
+            x2: ['er', 'de', 'der', 'efr'],
+            x3: ['der', 'der', 'der', 'def'],
+            x5: ['dr', 'e', 'er', 'defr'],
+            x8: ['def', 'defr', 'def', 'der'],
+        },
+        matrixCols: ['x1', 'x4', 'x6', 'x7'],
+    };
+
+    const sorted = a => [...a].sort();
+    const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+    const show = a => '{' + a.join(', ') + '}';
+    const normSets = arr => arr.map(sorted).sort((a, b) => a.join('|').localeCompare(b.join('|')));
+    const showSets = arr => normSets(arr).map(show).join(', ');
+
+    const checkBox = document.getElementById('rs-slide-check');
+    const clearCheck = () => { if (checkBox) checkBox.innerHTML = ''; };
+
+    const loadSlideExample = () => {
+        document.getElementById('rs-cond-attrs').value = SLIDE.cond.join(', ');
+        document.getElementById('rs-dec-attr').value = SLIDE.dec;
+        document.getElementById('rs-json-input').value = JSON.stringify(SLIDE.data, null, 2);
+        clearCheck();
+    };
+
+    // So kết quả Reduct với đáp án slide (chỉ khi dữ liệu còn nguyên như slide).
+    const showSlideCheck = res => {
+        if (!checkBox) return;
+        let untouched = false;
+        try {
+            untouched = document.getElementById('rs-cond-attrs').value.split(',').map(t => t.trim()).join(',') === SLIDE.cond.join(',')
+                && document.getElementById('rs-dec-attr').value.trim() === SLIDE.dec
+                && same(JSON.parse(document.getElementById('rs-json-input').value), SLIDE.data);
+        } catch (e) { untouched = false; }
+        if (!untouched) { clearCheck(); return; }
+
+        const checks = [];
+        const add = (label, got, want, ok) => checks.push({ label, got, want, ok });
+        add('Các tập rút gọn RED(C) — slide 28', showSets(res.minimal_reducts), showSets(SLIDE.reducts),
+            same(normSets(res.minimal_reducts), normSets(SLIDE.reducts)));
+        add('Thuộc tính cốt lõi CORE(C)', show(sorted(res.core_attributes)), show(sorted(SLIDE.core)),
+            same(sorted(res.core_attributes), sorted(SLIDE.core)));
+        const gotClauses = [...new Set(res.clauses.map(c => sorted(c).join('')))].sort();
+        const wantClauses = [...new Set(SLIDE.clauses.map(c => c.split('').sort().join('')))].sort();
+        add(`Các mệnh đề của hàm phân biệt (${wantClauses.length} mệnh đề) — slide 28`,
+            gotClauses.join(' · '), wantClauses.join(' · '), same(gotClauses, wantClauses));
+
+        // Ma trận phân biệt — slide 27.
+        const idx = id => res.objects.indexOf(id);
+        const bad = [];
+        Object.entries(SLIDE.matrix).forEach(([row, cells]) => {
+            cells.forEach((want, j) => {
+                const col = SLIDE.matrixCols[j];
+                const cell = res.matrix_n_x_n[idx(row)][idx(col)];
+                const got = cell === 'Ø' ? '' : cell.split(', ').sort().join('');
+                if (got !== want.split('').sort().join('')) bad.push(`[${row}][${col}]: tool ra "${got}", slide ra "${want}"`);
+            });
+        });
+        add('Ma trận phân biệt 16 ô (hàng x2, x3, x5, x8) — slide 27',
+            bad.length ? bad.join('; ') : 'đủ 16 ô trùng slide', 'đủ 16 ô trùng slide', bad.length === 0);
+
+        const allOk = checks.every(c => c.ok);
+        const color = allOk ? '#059669' : '#e11d48';
+        const bg = allOk ? '#ecfdf5' : '#fff1f2';
+        const rows = checks.map(c => c.ok
+            ? `<li>✔ ${c.label}: <strong>${c.got}</strong></li>`
+            : `<li style="color:#e11d48;">✘ ${c.label}: tool ra <strong>${c.got}</strong>, slide ra <strong>${c.want}</strong></li>`).join('');
+        checkBox.innerHTML = `<div class="step-card" style="border-color:${color};background:${bg};margin-bottom:1rem;">
+            <div class="rule-meta" style="margin-bottom:0.5rem;">
+                <strong style="color:${color};">${allOk ? 'KHỚP ĐÁP ÁN SLIDE' : 'KHÁC ĐÁP ÁN SLIDE'}</strong>
+                <span class="badge ${allOk ? 'badge-green' : 'badge-purple'}">Bài 4 – slide 25–28</span>
+            </div>
+            <ul style="margin:0;padding-left:1.2rem;">${rows}</ul>
+        </div>`;
+    };
+
+    loadSlideExample();
+
     // ---------------- 1. ROUGH SET EVENT LISTENER ----------------
     const btnRunRS = document.getElementById('btn-run-rs');
     if (btnRunRS) {
@@ -21,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = JSON.parse(jsonRaw);
                 const payload = { condition_attrs: condAttrs, decision_attr: decAttr, data };
                 const res = await API.post('rough-set', payload);
+                clearCheck();
 
                 const kPct = Math.round(res.dependency_k * 100);
                 const kBadge = res.dependency_k >= 0.9 ? 'badge-green' : (res.dependency_k >= 0.5 ? 'badge-blue' : 'badge-purple');
@@ -95,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('rs-cond-attrs').value = defaultAttrs.join(', ');
                 document.getElementById('rs-dec-attr').value = target;
                 document.getElementById('rs-json-input').value = JSON.stringify(res.data, null, 2);
+                clearCheck();
 
                 const info = document.getElementById('rs-prefill-report');
                 if (info) {
@@ -123,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = JSON.parse(jsonRaw);
                 const payload = { condition_attrs: condAttrs, decision_attr: decAttr, data };
                 const res = await API.post('reduct', payload);
+                showSlideCheck(res);
 
                 const coreSet = new Set(res.core_attributes || []);
                 const coreMatches = res.core_from_matrix &&

@@ -203,11 +203,13 @@ Hệ thống cho phép:
 ## 7. KIỂM THỬ VÀ VẬN HÀNH (TESTING & OPERATIONS)
 
 ### 7.1. Chạy Unit Tests
-Hệ thống bao gồm 49 bài test tự động bao phủ toàn diện các phân hệ:
+Hệ thống bao gồm 58 bài test tự động bao phủ toàn diện các phân hệ:
 ```bash
 python manage.py test
 ```
-*Kết quả:* `Ran 49 tests in 0.081s - OK`.
+*Đối soát với bài giảng:* lớp `RoughSetLectureExamplesTest` (Tập thô & Rút gọn) chạy lại 4 ví dụ giải sẵn trong `Bai3_Reduct.pdf` — bảng Thi đậu (slide 5–19), bảng thời tiết (slide 30–34), bảng rám nắng (slide 35–43), bảng tuyển dụng (slide 25–28) — và yêu cầu lớp tương đương, xấp xỉ dưới/trên, độ chính xác, độ phụ thuộc $k$, ma trận phân biệt, hàm phân biệt, các Reduct và Core trùng đáp án của thầy. Riêng slide 34 ghi $k = 6/8 = 0.66$ là nhầm phép chia; test dùng giá trị đúng $6/8 = 0.75$.
+
+*Kết quả:* `Ran 58 tests - OK`.
 
 ### 7.2. Khởi chạy Hệ thống
 ```bash
